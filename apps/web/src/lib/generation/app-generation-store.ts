@@ -11,17 +11,7 @@ import type {
   GenerationSceneRecord,
   GenerationStore,
 } from '@ai-shorts-factory/workflow-engine';
-
-const globalForScenes = globalThis as typeof globalThis & {
-  __asfScenes?: Map<string, GenerationSceneRecord[]>;
-};
-
-function sceneMap(): Map<string, GenerationSceneRecord[]> {
-  if (!globalForScenes.__asfScenes) {
-    globalForScenes.__asfScenes = new Map();
-  }
-  return globalForScenes.__asfScenes;
-}
+import { getSceneMap, scheduleMemoryStudioPersist } from '@/lib/projects/repository';
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -29,8 +19,7 @@ function nowIso(): string {
 
 /**
  * App-layer GenerationStore bridging project/story repos + in-memory scene rows.
- * Scene rows are process-local in memory mode; Supabase scene persistence can replace
- * the map in a later hardening pass without changing the runner.
+ * Scene rows are process-local in memory mode but snapshotted to `.data/memory-studio.json`.
  */
 export class AppGenerationStore implements GenerationStore {
   constructor(
@@ -58,7 +47,7 @@ export class AppGenerationStore implements GenerationStore {
       userId,
       workflowState: project.workflow_state,
       screenplay,
-      scenes: structuredClone(sceneMap().get(projectId) ?? []),
+      scenes: structuredClone(getSceneMap().get(projectId) ?? []),
     };
   }
 
@@ -68,12 +57,11 @@ export class AppGenerationStore implements GenerationStore {
     screenplay: ScreenplayV1,
   ): Promise<GenerationSceneRecord[]> {
     await this.getProjectSnapshot(userId, projectId);
-    const existing = sceneMap().get(projectId);
+    const existing = getSceneMap().get(projectId);
     if (existing && existing.length > 0) {
       return structuredClone(existing);
     }
 
-    // Optionally fold linked characters into continuity later; prompts already baked in screenplay.
     await this.characters.listByProject(userId, projectId);
 
     const timestamp = nowIso();
@@ -91,7 +79,8 @@ export class AppGenerationStore implements GenerationStore {
       };
       return record;
     });
-    sceneMap().set(projectId, scenes);
+    getSceneMap().set(projectId, scenes);
+    scheduleMemoryStudioPersist();
     return structuredClone(scenes);
   }
 
@@ -102,7 +91,7 @@ export class AppGenerationStore implements GenerationStore {
     patch: Partial<GenerationSceneRecord>,
   ): Promise<GenerationSceneRecord> {
     await this.getProjectSnapshot(userId, projectId);
-    const scenes = sceneMap().get(projectId) ?? [];
+    const scenes = getSceneMap().get(projectId) ?? [];
     const index = scenes.findIndex((scene) => scene.id === sceneId);
     if (index < 0) {
       throw new Error('Scene not found');
@@ -116,7 +105,8 @@ export class AppGenerationStore implements GenerationStore {
       updatedAt: nowIso(),
     };
     scenes[index] = updated;
-    sceneMap().set(projectId, scenes);
+    getSceneMap().set(projectId, scenes);
+    scheduleMemoryStudioPersist();
     return structuredClone(updated);
   }
 
@@ -126,5 +116,6 @@ export class AppGenerationStore implements GenerationStore {
     state: WorkflowState,
   ): Promise<void> {
     await this.projects.setWorkflowState(userId, projectId, state);
+    scheduleMemoryStudioPersist();
   }
 }

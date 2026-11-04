@@ -12,6 +12,7 @@ import {
   getCharacterRepository,
   getProjectRepository,
   getStoryRepository,
+  persistMemoryStudioNow,
 } from '@/lib/projects/repository';
 
 export type StoryActionState = {
@@ -26,7 +27,8 @@ function formString(formData: FormData, key: string): string {
   return typeof value === 'string' ? value : '';
 }
 
-function revalidateStory(projectId: string) {
+async function revalidateStory(projectId: string) {
+  await persistMemoryStudioNow();
   revalidatePath('/');
   revalidatePath('/projects');
   revalidatePath(`/projects/${projectId}`);
@@ -37,14 +39,14 @@ export async function markPromptReadyAction(projectId: string): Promise<void> {
   const user = await requireUser();
   const stories = await getStoryRepository();
   await stories.markPromptReady(user.id, projectId);
-  revalidateStory(projectId);
+  await revalidateStory(projectId);
 }
 
 export async function markWaitingForChatGptAction(projectId: string): Promise<void> {
   const user = await requireUser();
   const stories = await getStoryRepository();
   await stories.markWaitingForChatGpt(user.id, projectId);
-  revalidateStory(projectId);
+  await revalidateStory(projectId);
 }
 
 export async function importScreenplayAction(
@@ -67,7 +69,7 @@ export async function importScreenplayAction(
 
     const stories = await getStoryRepository();
     await stories.importScreenplay(user.id, projectId, imported.screenplay);
-    revalidateStory(projectId);
+    await revalidateStory(projectId);
     return {
       ok: true,
       message: 'Screenplay imported',
@@ -96,7 +98,7 @@ export async function loadSampleScreenplayAction(projectId: string): Promise<voi
   });
   const stories = await getStoryRepository();
   await stories.importScreenplay(user.id, projectId, sample);
-  revalidateStory(projectId);
+  await revalidateStory(projectId);
 }
 
 export async function saveScreenplayEditsAction(
@@ -111,7 +113,7 @@ export async function saveScreenplayEditsAction(
     const screenplay = parseScreenplayV1(parsedJson);
     const stories = await getStoryRepository();
     await stories.saveEditedScreenplay(user.id, projectId, screenplay);
-    revalidateStory(projectId);
+    await revalidateStory(projectId);
     return { ok: true, message: 'Screenplay saved' };
   } catch (error) {
     if (error instanceof ZodError) {
@@ -138,7 +140,7 @@ export async function approveStoryAction(projectId: string): Promise<void> {
   const user = await requireUser();
   const stories = await getStoryRepository();
   await stories.approveStory(user.id, projectId);
-  revalidateStory(projectId);
+  await revalidateStory(projectId);
 }
 
 export async function createCharacterAction(
@@ -157,7 +159,7 @@ export async function createCharacterAction(
       appearance_details: formString(formData, 'appearance_details'),
     });
     await characters.linkToProject(user.id, projectId, character.id);
-    revalidateStory(projectId);
+    await revalidateStory(projectId);
     return { ok: true, message: 'Character created and linked' };
   } catch (error) {
     return {
@@ -172,5 +174,5 @@ export async function deleteCharacterAction(projectId: string, characterId: stri
   const characters = await getCharacterRepository();
   await characters.unlinkFromProject(user.id, projectId, characterId);
   await characters.delete(user.id, characterId);
-  revalidateStory(projectId);
+  await revalidateStory(projectId);
 }

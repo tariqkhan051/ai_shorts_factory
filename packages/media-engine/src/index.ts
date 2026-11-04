@@ -22,7 +22,7 @@ export { resolveMediaToolPaths, assertMediaToolsAvailable } from './paths.js';
 export { runCommand } from './run-command.js';
 export { probeMedia, isReadableVideo } from './probe.js';
 export { evaluateQualityGates } from './quality.js';
-export { synthesizeColorClip } from './synthesize.js';
+export { synthesizeColorClip, mockSceneColor, MOCK_SCENE_COLORS } from './synthesize.js';
 export { assembleProject } from './assemble.js';
 
 export function getPackageMeta() {

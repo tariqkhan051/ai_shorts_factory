@@ -6,7 +6,7 @@ import { requireUser } from '@/lib/auth';
 import { processNextGenerationJob } from '@/lib/generation/process-job';
 import { getCreditLedger, getJobQueue } from '@/lib/generation/runtime';
 import { getNotificationPublisher } from '@/lib/notifications/runtime';
-import { getProjectRepository } from '@/lib/projects/repository';
+import { getProjectRepository, persistMemoryStudioNow } from '@/lib/projects/repository';
 
 function revalidateGeneration(projectId: string) {
   revalidatePath('/');
@@ -46,6 +46,7 @@ export async function startMockGenerationAction(projectId: string): Promise<void
 
   await processNextGenerationJob(`web-tick:${user.id}`);
   await publishGenerationOutcome(user.id, projectId);
+  await persistMemoryStudioNow();
   revalidateGeneration(projectId);
 }
 
@@ -70,6 +71,7 @@ export async function retryFailedSceneAction(
   });
   await processNextGenerationJob(`web-tick-retry:${user.id}`);
   await publishGenerationOutcome(user.id, projectId);
+  await persistMemoryStudioNow();
   revalidateGeneration(projectId);
 }
 

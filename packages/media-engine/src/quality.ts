@@ -51,6 +51,9 @@ export function evaluateQualityGates(input: QualityGateInput): QualityGateResult
     notes.push(
       'Final frame size is target canvas via scale/pad; do not label as native 1080p generation.',
     );
+    notes.push(
+      'Synthetic/mock placeholder media may be present — not real AI-generated Flow footage.',
+    );
   }
 
   if (failures.length > 0) {

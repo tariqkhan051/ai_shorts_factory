@@ -5,6 +5,7 @@ import { nextJobIdempotencyKey } from '@ai-shorts-factory/workflow-engine';
 import { requireUser } from '@/lib/auth';
 import { processNextGenerationJob } from '@/lib/generation/process-job';
 import { getJobQueue } from '@/lib/generation/runtime';
+import { persistMemoryStudioNow } from '@/lib/projects/repository';
 
 function revalidateAssemble(projectId: string) {
   revalidatePath('/');
@@ -36,5 +37,6 @@ export async function startAssemblyAction(projectId: string): Promise<void> {
   });
 
   await processNextGenerationJob(`web-media-tick:${user.id}`);
+  await persistMemoryStudioNow();
   revalidateAssemble(projectId);
 }

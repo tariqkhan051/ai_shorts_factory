@@ -100,6 +100,24 @@ export class MemoryStoryRepository implements StoryRepository {
     this.versions.clear();
   }
 
+  exportAll(): { stories: StoryRecord[]; versions: StoryVersionRecord[] } {
+    return {
+      stories: [...this.storiesByProject.values()].map((story) => structuredClone(story)),
+      versions: [...this.versions.values()].map((version) => structuredClone(version)),
+    };
+  }
+
+  importAll(input: { stories: StoryRecord[]; versions: StoryVersionRecord[] }): void {
+    this.storiesByProject.clear();
+    this.versions.clear();
+    for (const version of input.versions) {
+      this.versions.set(version.id, structuredClone(version));
+    }
+    for (const story of input.stories) {
+      this.storiesByProject.set(story.project_id, structuredClone(story));
+    }
+  }
+
   private async applyPath(
     userId: string,
     projectId: string,

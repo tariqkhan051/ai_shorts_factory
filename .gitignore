@@ -46,5 +46,6 @@ coverage
 # Media fixtures generated locally
 tmp/
 .tmp/
+.data/
 *.mp4
 !packages/media-engine/fixtures/**/*.mp4

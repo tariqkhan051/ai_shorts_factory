@@ -10,13 +10,28 @@ import {
   type StoryRepository,
   readDatabaseEnv,
 } from '@ai-shorts-factory/database';
+import type { GenerationSceneRecord } from '@ai-shorts-factory/workflow-engine';
 import { createClient } from '@/lib/supabase/server';
+import {
+  loadMemoryStudioSnapshot,
+  saveMemoryStudioSnapshot,
+} from '@/lib/projects/memory-studio-persist';
 
 const globalForStudio = globalThis as typeof globalThis & {
   __asfMemoryProjects?: MemoryProjectRepository;
   __asfMemoryStories?: MemoryStoryRepository;
   __asfMemoryCharacters?: MemoryCharacterRepository;
+  __asfScenes?: Map<string, GenerationSceneRecord[]>;
+  __asfMemoryHydrated?: boolean;
+  __asfMemoryPersistTimer?: ReturnType<typeof setTimeout>;
 };
+
+export function getSceneMap(): Map<string, GenerationSceneRecord[]> {
+  if (!globalForStudio.__asfScenes) {
+    globalForStudio.__asfScenes = new Map();
+  }
+  return globalForStudio.__asfScenes;
+}
 
 function getMemoryProjects(): MemoryProjectRepository {
   if (!globalForStudio.__asfMemoryProjects) {
@@ -39,9 +54,48 @@ function getMemoryCharacters(): MemoryCharacterRepository {
   return globalForStudio.__asfMemoryCharacters;
 }
 
+async function ensureMemoryHydrated(): Promise<void> {
+  if (globalForStudio.__asfMemoryHydrated) return;
+  globalForStudio.__asfMemoryHydrated = true;
+  await loadMemoryStudioSnapshot({
+    projects: getMemoryProjects(),
+    stories: getMemoryStories(),
+    characters: getMemoryCharacters(),
+    scenes: getSceneMap(),
+  });
+}
+
+export function scheduleMemoryStudioPersist(): void {
+  if (readDatabaseEnv(process.env).store !== 'memory') return;
+  if (globalForStudio.__asfMemoryPersistTimer) {
+    clearTimeout(globalForStudio.__asfMemoryPersistTimer);
+  }
+  globalForStudio.__asfMemoryPersistTimer = setTimeout(() => {
+    void saveMemoryStudioSnapshot({
+      projects: getMemoryProjects(),
+      stories: getMemoryStories(),
+      characters: getMemoryCharacters(),
+      scenes: getSceneMap(),
+    }).catch(() => {
+      // Persistence failures must not break request paths.
+    });
+  }, 50);
+}
+
+export async function persistMemoryStudioNow(): Promise<void> {
+  if (readDatabaseEnv(process.env).store !== 'memory') return;
+  await saveMemoryStudioSnapshot({
+    projects: getMemoryProjects(),
+    stories: getMemoryStories(),
+    characters: getMemoryCharacters(),
+    scenes: getSceneMap(),
+  });
+}
+
 export async function getProjectRepository(): Promise<ProjectRepository> {
   const env = readDatabaseEnv(process.env);
   if (env.store === 'memory') {
+    await ensureMemoryHydrated();
     return getMemoryProjects();
   }
   const supabase = await createClient();
@@ -54,6 +108,7 @@ export async function getProjectRepository(): Promise<ProjectRepository> {
 export async function getStoryRepository(): Promise<StoryRepository> {
   const env = readDatabaseEnv(process.env);
   if (env.store === 'memory') {
+    await ensureMemoryHydrated();
     return getMemoryStories();
   }
   const supabase = await createClient();
@@ -67,6 +122,7 @@ export async function getStoryRepository(): Promise<StoryRepository> {
 export async function getCharacterRepository(): Promise<CharacterRepository> {
   const env = readDatabaseEnv(process.env);
   if (env.store === 'memory') {
+    await ensureMemoryHydrated();
     return getMemoryCharacters();
   }
   const supabase = await createClient();

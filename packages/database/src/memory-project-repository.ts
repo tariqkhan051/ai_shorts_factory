@@ -163,4 +163,16 @@ export class MemoryProjectRepository implements ProjectRepository {
   clear(): void {
     this.projects.clear();
   }
+
+  /** Snapshot helpers for local durable memory-mode restarts. */
+  exportAll(): ProjectRecord[] {
+    return [...this.projects.values()].map((project) => structuredClone(project));
+  }
+
+  importAll(records: ProjectRecord[]): void {
+    this.projects.clear();
+    for (const record of records) {
+      this.projects.set(record.id, structuredClone(record));
+    }
+  }
 }

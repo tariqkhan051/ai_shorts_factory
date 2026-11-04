@@ -29,7 +29,8 @@ const ALLOWED: Partial<Record<WorkflowState, readonly WorkflowState[]>> = {
   ASSEMBLY_READY: ['ASSEMBLING', 'PAUSED'],
   ASSEMBLING: ['QUALITY_CHECK', 'PAUSED', 'FAILED'],
   QUALITY_CHECK: ['COMPLETED', 'PAUSED', 'FAILED'],
-  COMPLETED: ['FINAL_APPROVAL'],
+  // Re-assembly is allowed from COMPLETED for mock/dev durable verification retries.
+  COMPLETED: ['FINAL_APPROVAL', 'ASSEMBLY_READY'],
   FINAL_APPROVAL: ['APPROVED', 'PAUSED'],
   PAUSED: [
     'STORY_PROMPT_READY',

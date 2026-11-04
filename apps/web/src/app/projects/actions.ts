@@ -9,7 +9,7 @@ import {
 } from '@ai-shorts-factory/validation';
 import { ZodError } from 'zod';
 import { requireUser } from '@/lib/auth';
-import { getProjectRepository } from '@/lib/projects/repository';
+import { getProjectRepository, persistMemoryStudioNow } from '@/lib/projects/repository';
 
 export type ActionState = {
   ok: boolean;
@@ -45,6 +45,7 @@ export async function createProjectAction(
 
     const repo = await getProjectRepository();
     const project = await repo.create(user.id, payload);
+    await persistMemoryStudioNow();
 
     revalidatePath('/');
     revalidatePath('/projects');
@@ -87,6 +88,7 @@ export async function updateProjectAction(
 
     const repo = await getProjectRepository();
     await repo.update(user.id, projectId, payload);
+    await persistMemoryStudioNow();
 
     revalidatePath('/');
     revalidatePath('/projects');

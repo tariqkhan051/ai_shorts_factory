@@ -1,11 +1,12 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { BUSINESS_DEFAULTS } from '@ai-shorts-factory/shared-types';
 import { isReadableVideo, probeMedia } from './probe.js';
 import { evaluateQualityGates, type QualityGateResult } from './quality.js';
 import { assertMediaToolsAvailable, resolveMediaToolPaths, type MediaToolPaths } from './paths.js';
 import { runCommand } from './run-command.js';
-import { synthesizeColorClip } from './synthesize.js';
+import { mockSceneColor, synthesizeColorClip } from './synthesize.js';
 
 export type AssemblySceneInput = {
   /** Local path to scene media (may be non-video placeholder bytes in mock mode). */
@@ -64,8 +65,8 @@ async function normalizeScene(
       width,
       height,
       fps,
-      color: scene.sceneNumber % 2 === 0 ? '0x1a1a2e' : '0x16213e',
-      label: `scene-${scene.sceneNumber}`,
+      color: mockSceneColor(scene.sceneNumber),
+      label: `MOCK_scene-${scene.sceneNumber}`,
     });
     return { path: outPath, synthetic: true, sourceLowerRes: true };
   }
@@ -125,7 +126,17 @@ export async function assembleProject(input: AssembleProjectInput): Promise<Asse
   let usedSynthetic = false;
   let upscaled = false;
 
-  for (const scene of [...input.scenes].sort((a, b) => a.sceneNumber - b.sceneNumber)) {
+  const sortedScenes = [...input.scenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
+  const seenSceneNumbers = new Set<number>();
+  for (const scene of sortedScenes) {
+    if (seenSceneNumbers.has(scene.sceneNumber)) {
+      throw new Error(`Duplicate sceneNumber ${scene.sceneNumber} in assembly inputs`);
+    }
+    seenSceneNumbers.add(scene.sceneNumber);
+    if (!scene.path) {
+      throw new Error(`Scene ${scene.sceneNumber} has an empty path`);
+    }
+
     const result = await normalizeScene(
       paths,
       scene,
@@ -139,6 +150,8 @@ export async function assembleProject(input: AssembleProjectInput): Promise<Asse
     usedSynthetic = usedSynthetic || result.synthetic;
     upscaled = upscaled || result.sourceLowerRes;
   }
+
+  await assertDistinctSceneFiles(normalized);
 
   const listPath = join(input.workDir, 'concat.txt');
   const listBody = normalized.map((file) => `file '${file.replace(/'/g, "'\\''")}'`).join('\n');
@@ -239,4 +252,22 @@ export async function assembleProject(input: AssembleProjectInput): Promise<Asse
     probe,
     quality,
   };
+}
+
+async function assertDistinctSceneFiles(paths: string[]): Promise<void> {
+  const hashes = new Map<string, string>();
+  for (const filePath of paths) {
+    const bytes = await readFile(filePath);
+    if (bytes.byteLength === 0) {
+      throw new Error(`Normalized scene file is empty: ${filePath}`);
+    }
+    const digest = createHash('sha256').update(bytes).digest('hex');
+    const prior = hashes.get(digest);
+    if (prior) {
+      throw new Error(
+        `Duplicate normalized scene content detected (${prior} and ${filePath}). Mock placeholders must be distinct per scene.`,
+      );
+    }
+    hashes.set(digest, filePath);
+  }
 }

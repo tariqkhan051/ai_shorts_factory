@@ -105,6 +105,33 @@ export class MemoryCharacterRepository implements CharacterRepository {
     this.projectLinks.clear();
   }
 
+  exportAll(): {
+    characters: CharacterRecord[];
+    projectLinks: Array<{ projectId: string; characterIds: string[] }>;
+  } {
+    return {
+      characters: [...this.characters.values()].map((character) => structuredClone(character)),
+      projectLinks: [...this.projectLinks.entries()].map(([projectId, characterIds]) => ({
+        projectId,
+        characterIds: [...characterIds],
+      })),
+    };
+  }
+
+  importAll(input: {
+    characters: CharacterRecord[];
+    projectLinks: Array<{ projectId: string; characterIds: string[] }>;
+  }): void {
+    this.characters.clear();
+    this.projectLinks.clear();
+    for (const character of input.characters) {
+      this.characters.set(character.id, structuredClone(character));
+    }
+    for (const link of input.projectLinks) {
+      this.projectLinks.set(link.projectId, new Set(link.characterIds));
+    }
+  }
+
   private async requireProject(userId: string, projectId: string) {
     const project = await this.projects.getById(userId, projectId);
     if (!project) {
