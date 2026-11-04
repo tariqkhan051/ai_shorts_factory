@@ -100,6 +100,7 @@ describe('GoogleFlowPlaywrightProvider', () => {
       nodeEnv: 'development',
       sessionFactory: async () => session,
       pollIntervalMs: 1,
+      requireExactModelMatch: false,
     });
 
     const availability = await provider.checkAvailability();

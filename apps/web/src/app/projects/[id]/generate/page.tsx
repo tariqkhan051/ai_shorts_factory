@@ -1,13 +1,16 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { describeFlowProviderStatus } from '@ai-shorts-factory/flow-adapter/status';
+import { describeFlowProviderStatus, isLiveFlowProviderName } from '@ai-shorts-factory/flow-adapter';
 import { BUSINESS_DEFAULTS } from '@ai-shorts-factory/shared-types';
 import {
   retryFailedSceneAction,
   startMockGenerationAction,
 } from '@/app/projects/[id]/generate/actions';
+import { FlowIntegrationPanel } from '@/components/flow-integration-panel';
+import { LiveCanaryPanel } from '@/components/live-canary-panel';
 import { requireUser } from '@/lib/auth';
 import { AppGenerationStore } from '@/lib/generation/app-generation-store';
+import { buildFlowIntegrationSnapshot } from '@/lib/generation/flow-integration';
 import { getCreditLedger } from '@/lib/generation/runtime';
 import {
   getCharacterRepository,
@@ -68,6 +71,8 @@ export default async function GeneratePage({ params }: PageProps) {
     GENERATION_START_STATES.has(project.workflow_state) &&
     completedCount < BUSINESS_DEFAULTS.sceneCount;
   const assemblyReady = project.workflow_state === 'ASSEMBLY_READY';
+  const integration = buildFlowIntegrationSnapshot({ credits, scenes });
+  const liveConfigured = isLiveFlowProviderName(flow.provider) && flow.liveEnabled;
 
   return (
     <div className="space-y-8">
@@ -77,21 +82,15 @@ export default async function GeneratePage({ params }: PageProps) {
         </Link>
         <h1 className="text-3xl font-semibold tracking-tight">Scene generation</h1>
         <p className="max-w-3xl text-muted">
-          Sequential mock Flow generation — five scenes, ten credits each, no automatic retries.
-          Live Google Flow uses Playwright in the worker only after UI recipe verification.
+          Sequential generation with immutable credit ledger. Mock mode remains the default product
+          path. Live Google Flow is canary-gated to Scene 1 until you unlock five-scene runs.
         </p>
         <p className="font-mono text-xs uppercase tracking-wide text-accent">
           {project.workflow_state}
         </p>
-        <p className="text-sm text-muted">
-          Live Flow gates:{' '}
-          <span className="font-mono text-foreground">{flow.gatesOk ? 'open' : 'closed'}</span>
-          {' · '}
-          <Link href="/settings" className="text-accent hover:underline">
-            Settings
-          </Link>
-        </p>
       </div>
+
+      <FlowIntegrationPanel snapshot={integration} />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <CreditStat label="Spendable" value={credits.spendable} />
@@ -115,12 +114,14 @@ export default async function GeneratePage({ params }: PageProps) {
         </section>
       ) : (
         <>
+          <LiveCanaryPanel projectId={project.id} liveConfigured={liveConfigured} />
+
           <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background-elevated/50 p-5">
             <div>
               <h2 className="text-lg font-medium">Mock generation controls</h2>
               <p className="mt-1 text-sm text-muted">
                 {completedCount}/{BUSINESS_DEFAULTS.sceneCount} scenes complete · budget{' '}
-                {credits.dailyBudget}/day
+                {credits.dailyBudget}/day · assets labeled MOCK
               </p>
               {snapshotError ? <p className="mt-2 text-sm text-danger">{snapshotError}</p> : null}
               {assemblyReady ? (
@@ -157,7 +158,12 @@ export default async function GeneratePage({ params }: PageProps) {
                   .slice()
                   .sort((a, b) => a.sceneNumber - b.sceneNumber)
                   .map((scene) => {
-                    const canRetry = scene.state === 'FAILED' || scene.state === 'NEEDS_ATTENTION';
+                    const canRetry =
+                      scene.state === 'FAILED' ||
+                      scene.state === 'NEEDS_ATTENTION' ||
+                      scene.state === 'DOWNLOAD_FAILED' ||
+                      scene.state === 'VERIFICATION_FAILED' ||
+                      scene.state === 'UNKNOWN_SUBMISSION';
                     return (
                       <li
                         key={scene.id}
@@ -169,6 +175,7 @@ export default async function GeneratePage({ params }: PageProps) {
                           </p>
                           <p className="font-mono text-xs uppercase tracking-wide text-accent">
                             {scene.state}
+                            {scene.assetOrigin ? ` · ${scene.assetOrigin}` : ''}
                           </p>
                           <p className="line-clamp-2 text-sm text-muted">{scene.flowPrompt}</p>
                           {scene.errorMessage ? (
@@ -192,7 +199,7 @@ export default async function GeneratePage({ params }: PageProps) {
                               type="submit"
                               className="rounded-md border border-border px-3 py-2 text-sm hover:bg-background"
                             >
-                              Retry scene {scene.sceneNumber}
+                              Retry scene {scene.sceneNumber} (mock)
                             </button>
                           </form>
                         ) : null}

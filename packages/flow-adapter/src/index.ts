@@ -16,6 +16,7 @@ export type {
   GenerationStatus,
   DownloadedAsset,
   GenerationRequest,
+  FlowUiOptionInventory,
   VideoGenerationProvider,
 } from './provider.js';
 
@@ -26,6 +27,9 @@ export type {
 } from './browser-session.js';
 export type { FlowUiRecipe, FlowUiSelectors } from './flow-ui-recipe.js';
 export type { FlowLiveGateInput, FlowLiveGateResult } from './flow-live-gates.js';
+export type { FlowLiveConfig } from './flow-live-config.js';
+export type { FlowSessionStatusReport } from './flow-session-status.js';
+export type { LiveSpendConfirmationPayload } from './spend-confirmation.js';
 
 export { MockVideoGenerationProvider } from './mock-provider.js';
 export {
@@ -35,7 +39,24 @@ export {
   isRecipeVerified,
   REQUIRED_SELECTOR_KEYS,
 } from './flow-ui-recipe.js';
-export { evaluateFlowLiveGates, readFlowLiveGateEnv } from './flow-live-gates.js';
+export {
+  evaluateFlowLiveGates,
+  evaluateFlowExecuteGates,
+  readFlowLiveGateEnv,
+} from './flow-live-gates.js';
+export {
+  readFlowLiveConfig,
+  resolveFlowModelOptionLabel,
+  resolveLiveMaxScenes,
+  isLiveFlowProviderName,
+} from './flow-live-config.js';
+export { describeFlowSessionStatus } from './flow-session-status.js';
+export {
+  createLiveSpendConfirmation,
+  assertLiveSpendConfirmation,
+  hashSpendConfirmationToken,
+  LIVE_SPEND_CONFIRM_PHRASE,
+} from './spend-confirmation.js';
 export { loadFlowUiRecipeFromFile, loadFlowUiRecipeFromEnv } from './load-recipe.js';
 export { describeFlowProviderStatus } from './flow-status.js';
 
@@ -48,5 +69,6 @@ export function getPackageMeta() {
     liveProviderReady: false,
     liveRequiresUiVerification: true,
     liveImportPath: '@ai-shorts-factory/flow-adapter/live',
+    canaryMode: true,
   } as const;
 }

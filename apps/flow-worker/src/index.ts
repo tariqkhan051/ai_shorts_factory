@@ -1,5 +1,10 @@
 import { MemoryCreditLedger } from '@ai-shorts-factory/credit-manager';
-import { describeFlowProviderStatus } from '@ai-shorts-factory/flow-adapter';
+import {
+  describeFlowProviderStatus,
+  isLiveFlowProviderName,
+  readFlowLiveConfig,
+  resolveLiveMaxScenes,
+} from '@ai-shorts-factory/flow-adapter';
 import {
   createVideoGenerationProvider,
   GoogleFlowPlaywrightProvider,
@@ -12,6 +17,7 @@ import {
   MemoryJobQueue,
   SequentialGenerationRunner,
   startLeaseHeartbeat,
+  type GenerationRunnerOptions,
   type JobQueue,
   type WorkflowJobRecord,
 } from '@ai-shorts-factory/workflow-engine';
@@ -47,6 +53,35 @@ function sampleScreenplay(): ScreenplayV1 {
   };
 }
 
+function liveRunnerOptions(workerId: string, overrides?: Partial<GenerationRunnerOptions>): GenerationRunnerOptions {
+  const config = readFlowLiveConfig(process.env);
+  const live = isLiveFlowProviderName(config.provider) && config.liveEnabled;
+  if (!live) {
+    return { workerId, ...overrides };
+  }
+
+  // Live worker jobs are canary-locked unless FLOW_CANARY_ONLY=false after review.
+  const maxScenes = resolveLiveMaxScenes(config);
+  return {
+    workerId,
+    maxScenes,
+    model: config.model,
+    durationSeconds: config.durationSeconds,
+    resolution: config.resolution,
+    aspectRatio: config.aspectRatio,
+    estimatedCostPerScene:
+      typeof config.estimatedCostPerScene === 'number'
+        ? config.estimatedCostPerScene
+        : BUSINESS_DEFAULTS.estimatedCostPerScene,
+    assetOrigin: 'REAL_GENERATED',
+    requireSpendConfirmation: true,
+    spendConfirmationAccepted: process.env.FLOW_SPEND_CONFIRM_PHRASE === 'SPEND_REAL_CREDITS',
+    allowFullLiveProject: !config.canaryOnly && maxScenes > 1,
+    unknownSubmissionReconciled: process.env.FLOW_UNKNOWN_RECONCILED === 'true',
+    ...overrides,
+  };
+}
+
 async function processClaimedJob(
   queue: JobQueue,
   runner: SequentialGenerationRunner,
@@ -57,7 +92,7 @@ async function processClaimedJob(
   const heartbeat = startLeaseHeartbeat(queue, job.id, workerId, leaseSeconds);
   try {
     if (job.jobType === 'GENERATE_PROJECT_SCENES') {
-      const result = await runner.runProject(job.userId, job.projectId, { workerId });
+      const result = await runner.runProject(job.userId, job.projectId, liveRunnerOptions(workerId));
       if (result.failed) {
         await queue.fail(job.id, workerId, result.failed);
       } else {
@@ -66,10 +101,11 @@ async function processClaimedJob(
       return;
     }
     if (job.jobType === 'VERIFY_SINGLE_SCENE') {
-      const result = await runner.runProject(job.userId, job.projectId, {
-        workerId,
-        maxScenes: 1,
-      });
+      const result = await runner.runProject(
+        job.userId,
+        job.projectId,
+        liveRunnerOptions(workerId, { maxScenes: 1, allowFullLiveProject: false }),
+      );
       if (result.failed) {
         await queue.fail(job.id, workerId, result.failed);
       } else {
@@ -79,9 +115,12 @@ async function processClaimedJob(
     }
     if (job.jobType === 'RETRY_SCENE') {
       const sceneNumber = Number(job.payload.sceneNumber);
-      const result = await runner.retryScene(job.userId, job.projectId, sceneNumber, {
-        workerId,
-      });
+      const result = await runner.retryScene(
+        job.userId,
+        job.projectId,
+        sceneNumber,
+        liveRunnerOptions(workerId),
+      );
       if (result.status === 'failed') {
         await queue.fail(job.id, workerId, result.message);
       } else {

@@ -43,4 +43,22 @@ describe('evaluateFlowLiveGates', () => {
     });
     expect(result.ok).toBe(false);
   });
+
+  it('execute gates also require FLOW_EXECUTE_LIVE', () => {
+    const result = evaluateFlowLiveGates({
+      flowProvider: 'google-flow',
+      flowLiveEnabled: 'true',
+      flowUiVerified: 'true',
+      browserProfileDir: '/tmp/flow-profile',
+      recipeVerified: true,
+      nodeEnv: 'development',
+      requireExecuteLive: true,
+      flowExecuteLive: 'false',
+      flowCanaryOnly: 'true',
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reasons.some((reason) => /FLOW_EXECUTE_LIVE/i.test(reason))).toBe(true);
+    }
+  });
 });

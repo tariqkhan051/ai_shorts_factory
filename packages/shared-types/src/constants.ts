@@ -6,12 +6,20 @@ export const BUSINESS_DEFAULTS = {
   maxGenerationsPerProject: 5,
   defaultGenerationDurationSeconds: 6,
   defaultGenerationResolution: '720p',
-  defaultGenerationModel: 'gemini-omni-flash',
+  defaultGenerationAspectRatio: '9:16',
+  /** Must match a visible Google Flow UI model label (override via DEFAULT_GENERATION_MODEL). */
+  defaultGenerationModel: 'Veo 3.1 - Lite',
   finalVideoMaxSeconds: 59,
   finalVideoTargetWidth: 1080,
   finalVideoTargetHeight: 1920,
   finalVideoFps: 30,
   defaultTimezone: 'Asia/Karachi',
+  /** Live canary: at most one scene until operator unlocks full run. */
+  canaryMaxLiveScenesPerProject: 1,
+  /** Live concurrency hard cap — never run multiple live Flow jobs in parallel. */
+  maxSimultaneousLiveGenerations: 1,
+  flowPollIntervalMs: 5_000,
+  flowGenerationTimeoutMs: 10 * 60_000,
 } as const;
 
 export const PHASE = {

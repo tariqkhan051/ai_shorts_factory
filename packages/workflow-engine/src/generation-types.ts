@@ -1,5 +1,22 @@
-import type { SceneState, WorkflowState } from '@ai-shorts-factory/shared-types';
+import {
+  BUSINESS_DEFAULTS,
+  type AssetOrigin,
+  type SceneState,
+  type WorkflowState,
+} from '@ai-shorts-factory/shared-types';
 import type { ScreenplayV1 } from '@ai-shorts-factory/validation';
+
+export type SceneAssetMetadata = {
+  bytes: number;
+  sha256: string;
+  contentType: string;
+  durationSeconds?: number;
+  width?: number | null;
+  height?: number | null;
+  hasVideo?: boolean;
+  probedAt?: string;
+  originalDownloadPreserved?: boolean;
+};
 
 export type GenerationSceneRecord = {
   id: string;
@@ -12,8 +29,13 @@ export type GenerationSceneRecord = {
   generationJobId?: string;
   submissionId?: string;
   reservationId?: string;
+  /** Persisted before Flow Generate is clicked — used for crash reconciliation. */
+  idempotencyKey?: string;
+  submissionAttempted?: boolean;
   assetStorageKey?: string;
   assetChecksum?: string;
+  assetOrigin?: AssetOrigin;
+  assetMetadata?: SceneAssetMetadata;
   errorMessage?: string;
   createdAt: string;
   updatedAt: string;
@@ -47,15 +69,61 @@ export interface GenerationStore {
   setProjectWorkflowState(userId: string, projectId: string, state: WorkflowState): Promise<void>;
 }
 
+export type DownloadedAssetVerification = {
+  ok: true;
+  durationSeconds: number;
+  width: number | null;
+  height: number | null;
+  hasVideo: true;
+} | {
+  ok: false;
+  reason: string;
+};
+
 export type GenerationRunnerOptions = {
   workerId: string;
   model?: string;
   durationSeconds?: number;
   resolution?: string;
+  aspectRatio?: string;
   estimatedCostPerScene?: number;
-  /** Phase 4 single-scene live verification — process at most N pending scenes. */
+  /** Phase 4/7 single-scene live verification / canary — process at most N pending scenes. */
   maxScenes?: number;
+  /** Mark completed assets as mock or real. */
+  assetOrigin?: AssetOrigin;
+  /**
+   * Live spend must be explicitly confirmed. When true, runner refuses without
+   * `spendConfirmationAccepted: true` from the operator preflight step.
+   */
+  requireSpendConfirmation?: boolean;
+  spendConfirmationAccepted?: boolean;
+  /**
+   * Required to retry UNKNOWN_SUBMISSION after human credit reconciliation.
+   * Spend confirmation alone is not enough.
+   */
+  unknownSubmissionReconciled?: boolean;
+  /**
+   * Unlock sequential multi-scene live generation. Without this, any live /
+   * spend-confirmed run is hard-capped at one scene (canary lock).
+   */
+  allowFullLiveProject?: boolean;
+  /** Optional FFprobe (or equivalent) verification for real downloads. */
+  verifyDownloadedAsset?: (localPath: string) => Promise<DownloadedAssetVerification>;
   /** Injected failures for tests — never used against live Flow. */
   failOnSceneNumber?: number;
-  failMode?: 'before_submit' | 'after_submit_uncertain' | 'download';
+  failMode?: 'before_submit' | 'after_submit_uncertain' | 'download' | 'verification';
 };
+
+/** Live / spend-gated runs default to one scene until explicitly unlocked. */
+export function resolveEffectiveMaxScenes(options: GenerationRunnerOptions): number | undefined {
+  const isLive =
+    options.assetOrigin === 'REAL_GENERATED' || options.requireSpendConfirmation === true;
+  if (!isLive) {
+    return options.maxScenes;
+  }
+  if (options.allowFullLiveProject) {
+    return options.maxScenes ?? BUSINESS_DEFAULTS.sceneCount;
+  }
+  const requested = options.maxScenes ?? 1;
+  return Math.min(1, requested);
+}

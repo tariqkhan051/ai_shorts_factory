@@ -2,19 +2,22 @@
   "version": 1,
   "verifiedAt": null,
   "verifiedBy": null,
-  "notes": "Inspect live Google Flow in a real browser, fill every required selector, set verifiedAt/verifiedBy, then set FLOW_UI_VERIFIED=true. Do not invent Flow HTTP APIs or bypass CAPTCHA.",
-  "baseUrl": "",
-  "modelOptionLabel": "Gemini Omni Flash",
+  "notes": "Authenticated UI inspect (ASF Canary Inspect, no Generate). Default canary model: Veo 3.1 - Lite (override via DEFAULT_GENERATION_MODEL / FLOW_MODEL_OPTION_LABEL). Confirmed selectors: prompt textbox; Start generation; Video generation default model menu (Omni 1.1 Flash, Veo 3.1 - Lite/Fast/Quality); Video aspect 16:9 and 9:16. Scenes composer status pill observed: Video · 720p · 8s; Generating will use 10 credits. Discrete duration/resolution pickers and result/download still unmapped. Do NOT set verifiedAt until those are filled and operator approves spend.",
+  "baseUrl": "https://flow.google.com/",
+  "modelOptionLabel": "Veo 3.1 - Lite",
+  "aspectRatioOptionLabel": "9:16",
   "selectors": {
-    "promptInput": "",
-    "modelControl": "",
+    "promptInput": "[role=\"textbox\"][aria-label=\"What do you want to create?\"]",
+    "modelControl": "[aria-label=\"Video generation default model\"]",
     "durationControl": "",
     "resolutionControl": "",
-    "submitButton": "",
+    "aspectRatioControl": "[aria-label=\"Video generation default aspect ratio\"]",
+    "submitButton": "button[aria-label=\"Start generation\"]",
     "resultReady": "",
     "downloadButton": "",
     "creditCostBadge": "",
-    "captchaOrChallenge": "",
-    "loginRequired": ""
+    "captchaOrChallenge": "text=unusual traffic",
+    "loginRequired": "text=Sign in",
+    "workspaceReady": "button[aria-label=\"Start generation\"]"
   }
 }

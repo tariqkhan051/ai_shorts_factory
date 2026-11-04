@@ -35,6 +35,7 @@ Thumbs.db
 
 # Worker / browser profiles (never commit)
 .browser-profiles/
+.flow-profile/
 *.session
 *.session-enc
 

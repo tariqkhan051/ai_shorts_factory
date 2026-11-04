@@ -8,6 +8,11 @@ export type FlowBrowserSessionOptions = {
   headless: boolean;
   baseUrl: string;
   diagnosticDir: string;
+  /**
+   * Prefer installed browser for Google sign-in compatibility:
+   * 'chrome' | 'msedge' | '' (bundled Chromium).
+   */
+  channel?: string;
 };
 
 export interface FlowBrowserSession {
@@ -18,6 +23,11 @@ export interface FlowBrowserSession {
   waitForSelector(selector: string, options?: { timeoutMs?: number }): Promise<void>;
   isVisible(selector: string): Promise<boolean>;
   textContent(selector: string): Promise<string | null>;
+  /**
+   * Optional: list visible option labels under a control (for model/duration inventory).
+   * Fake sessions in tests may return an empty list.
+   */
+  listOptionLabels?(selector: string): Promise<string[]>;
   screenshot(filePath: string): Promise<void>;
   /**
    * Trigger download via selector click and save to destinationPath.

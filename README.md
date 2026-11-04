@@ -4,7 +4,7 @@ Cloud-based short video production platform: idea → ChatGPT screenplay import 
 
 **Current phase: 7 — Hardening and Deployment**
 
-This is a real application under phased construction. Paid APIs are **not** enabled. Story writing uses a copyable ChatGPT website prompt + JSON import. Product generation defaults to the mock provider; assembly uses FFmpeg toward a ≤59s vertical MP4. The dashboard streams in-app alerts over SSE and ships as an installable PWA. Live Google Flow stays Playwright-gated. Phase 7 adds health/ready probes, security headers, RLS hardening, lease reclaim tests, storage purge helpers, and deploy/ops scripts.
+This is a real application under phased construction. Paid APIs are **not** enabled. Story writing uses a copyable ChatGPT website prompt + JSON import. Product generation defaults to the mock provider; assembly uses FFmpeg toward a ≤59s vertical MP4. The dashboard streams in-app alerts over SSE and ships as an installable PWA. Live Google Flow is Playwright-gated with a **Scene 1 canary** (explicit spend confirmation; no CI credit spend). Phase 7 also covers health/ready probes, security headers, RLS hardening, and deploy/ops scripts.
 
 ## Stack
 
@@ -69,13 +69,13 @@ Workers stay off unless explicitly enabled. Memory queues are process-local; the
 FLOW_WORKER_ENABLED=true FLOW_WORKER_SMOKE=true FLOW_PROVIDER=mock pnpm --filter @ai-shorts-factory/flow-worker start
 ```
 
-After filling a verified Flow UI recipe (see `docs/phases/phase-4.md`):
+After filling a verified Flow UI recipe (see `docs/ops/google-flow-setup.md`):
 
 ```bash
 pnpm exec playwright install chromium
-FLOW_PROVIDER=playwright FLOW_LIVE_ENABLED=true FLOW_UI_VERIFIED=true \
-  FLOW_BROWSER_PROFILE_DIR=./.flow-profile FLOW_UI_RECIPE_PATH=./path/to/recipe.json \
-  pnpm --filter @ai-shorts-factory/flow-worker verify:scene
+# Preflight only (no credits):
+pnpm --filter @ai-shorts-factory/flow-worker canary:scene
+# After explicit approval + FLOW_EXECUTE_LIVE=true + spend phrase — Scene 1 only.
 ```
 
 FFmpeg smoke assembly:
@@ -100,7 +100,7 @@ Copy `.env.example`. Never commit secrets. Never expose:
 - **10** credits per scene (expected)
 - Max final duration: **59** seconds
 - Sequential generation; no automatic replacements
-- Default model config: Gemini Omni Flash / 6s / 720p (must be verified in Flow UI before live use)
+- Default model config: Veo 3.1 - Lite / 6s / 720p (override via `DEFAULT_GENERATION_MODEL` / `FLOW_MODEL_OPTION_LABEL`; verify in Flow UI before live use)
 
 ## Phase roadmap
 
@@ -138,3 +138,5 @@ Probes: `GET /api/health`, `GET /api/ready`.
 - No invented Flow HTTP APIs
 - No CAPTCHA bypass; auth expiry → human intervention
 - CI and automated tests must use `FLOW_PROVIDER=mock` only
+- Live canary requires typed `SPEND_REAL_CREDITS` + `FLOW_EXECUTE_LIVE=true`
+- See [docs/ops/google-flow-setup.md](./docs/ops/google-flow-setup.md)

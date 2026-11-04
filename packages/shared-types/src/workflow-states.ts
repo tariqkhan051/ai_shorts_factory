@@ -31,14 +31,36 @@ export type WorkflowState = (typeof WORKFLOW_STATES)[number];
 export const SCENE_STATES = [
   'PENDING',
   'GENERATING',
+  'SUBMITTING',
   'DOWNLOADING',
   'VERIFYING',
   'COMPLETED',
   'FAILED',
   'NEEDS_ATTENTION',
+  'UNKNOWN_SUBMISSION',
+  'DOWNLOAD_FAILED',
+  'VERIFICATION_FAILED',
 ] as const;
 
 export type SceneState = (typeof SCENE_STATES)[number];
+
+/** Distinguishes mock pipeline bytes from verified live Flow downloads. */
+export const ASSET_ORIGINS = ['MOCK', 'REAL_GENERATED'] as const;
+export type AssetOrigin = (typeof ASSET_ORIGINS)[number];
+
+/**
+ * Operator-facing Google Flow session readiness (dashboard / settings).
+ * Never inferred from invented APIs — only from config + permitted UI signals.
+ */
+export const FLOW_SESSION_STATUSES = [
+  'NOT_CONFIGURED',
+  'AUTHENTICATION_REQUIRED',
+  'READY',
+  'SESSION_EXPIRED',
+  'HUMAN_INTERVENTION_REQUIRED',
+  'ERROR',
+] as const;
+export type FlowSessionStatus = (typeof FLOW_SESSION_STATUSES)[number];
 
 export const CONTENT_CATEGORIES = [
   'fictional_story',

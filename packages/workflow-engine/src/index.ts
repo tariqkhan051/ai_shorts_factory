@@ -24,10 +24,19 @@ export type {
   GenerationProjectSnapshot,
   GenerationStore,
   GenerationRunnerOptions,
+  SceneAssetMetadata,
+  DownloadedAssetVerification,
 } from './generation-types.js';
+export { resolveEffectiveMaxScenes } from './generation-types.js';
 export type { SceneGenerationResult } from './sequential-generation-runner.js';
 export { SequentialGenerationRunner } from './sequential-generation-runner.js';
 export { MemoryGenerationStore } from './memory-generation-store.js';
+export {
+  tryAcquireLiveGenerationSlot,
+  releaseLiveGenerationSlot,
+  getActiveLiveGenerationCount,
+  resetLiveGenerationSlotsForTests,
+} from './live-generation-lock.js';
 
 export function getPackageMeta() {
   return {

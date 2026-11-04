@@ -1,11 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { FlowSessionStatus } from '@ai-shorts-factory/shared-types';
 import type { FlowBrowserSession, FlowBrowserSessionFactory } from './browser-session.js';
 import { evaluateFlowLiveGates } from './flow-live-gates.js';
 import { isRecipeVerified, listMissingSelectors, type FlowUiRecipe } from './flow-ui-recipe.js';
 import type {
   DownloadedAsset,
+  FlowUiOptionInventory,
   GenerationRequest,
   GenerationStatus,
   GenerationSubmission,
@@ -31,6 +33,8 @@ export type GoogleFlowPlaywrightProviderOptions = {
   sessionFactory?: FlowBrowserSessionFactory;
   pollIntervalMs?: number;
   completionTimeoutMs?: number;
+  /** When true, inspect UI options and refuse silent model substitution */
+  requireExactModelMatch?: boolean;
 };
 
 type LiveJob = {
@@ -39,6 +43,7 @@ type LiveJob = {
   status: GenerationStatus;
   observedCost: number | 'unknown';
   localAssetPath?: string;
+  submitClicked: boolean;
 };
 
 /**
@@ -48,19 +53,24 @@ type LiveJob = {
 export class GoogleFlowPlaywrightProvider implements VideoGenerationProvider {
   readonly name = 'google-flow-playwright';
   private readonly jobs = new Map<string, LiveJob>();
+  private readonly jobsByIdempotency = new Map<string, string>();
   private session: FlowBrowserSession | null = null;
   private readonly sessionFactory: FlowBrowserSessionFactory;
   private readonly diagnosticDir: string;
   private readonly headless: boolean;
   private readonly pollIntervalMs: number;
   private readonly completionTimeoutMs: number;
+  private readonly requireExactModelMatch: boolean;
+  private lastSessionStatus: FlowSessionStatus = 'NOT_CONFIGURED';
+  private lastSessionMessage = 'Session not prepared';
 
   constructor(private readonly options: GoogleFlowPlaywrightProviderOptions) {
     this.sessionFactory = options.sessionFactory ?? defaultPlaywrightSessionFactory;
     this.diagnosticDir = options.diagnosticDir ?? './diagnostic-screenshots';
     this.headless = options.headless ?? true;
-    this.pollIntervalMs = options.pollIntervalMs ?? 2_000;
+    this.pollIntervalMs = options.pollIntervalMs ?? 5_000;
     this.completionTimeoutMs = options.completionTimeoutMs ?? 10 * 60_000;
+    this.requireExactModelMatch = options.requireExactModelMatch ?? true;
   }
 
   private gateCheck() {
@@ -73,6 +83,10 @@ export class GoogleFlowPlaywrightProvider implements VideoGenerationProvider {
       nodeEnv: this.options.nodeEnv,
       ci: this.options.ci,
     });
+  }
+
+  getCachedSessionStatus(): { status: FlowSessionStatus; message: string } {
+    return { status: this.lastSessionStatus, message: this.lastSessionMessage };
   }
 
   async checkAvailability(): Promise<ProviderAvailability> {
@@ -118,9 +132,12 @@ export class GoogleFlowPlaywrightProvider implements VideoGenerationProvider {
   async prepareSession(): Promise<void> {
     const config = await this.validateConfiguration();
     if (!config.ok) {
+      this.lastSessionStatus = 'ERROR';
+      this.lastSessionMessage = config.message;
       throw new Error(config.message);
     }
     if (this.session) {
+      await this.refreshSessionStatus();
       return;
     }
     await mkdir(this.diagnosticDir, { recursive: true });
@@ -131,28 +148,57 @@ export class GoogleFlowPlaywrightProvider implements VideoGenerationProvider {
       diagnosticDir: this.diagnosticDir,
     });
     await this.session.goto(this.options.recipe.baseUrl);
-    await this.assertNoHumanBlockers('prepareSession');
+    await this.refreshSessionStatus();
+    if (
+      this.lastSessionStatus === 'AUTHENTICATION_REQUIRED' ||
+      this.lastSessionStatus === 'HUMAN_INTERVENTION_REQUIRED' ||
+      this.lastSessionStatus === 'SESSION_EXPIRED'
+    ) {
+      throw new Error(`${this.lastSessionStatus}: ${this.lastSessionMessage}`);
+    }
+  }
+
+  /**
+   * Inspect visible Flow UI options. Never invents models — reads the page.
+   */
+  async inspectAvailableOptions(): Promise<FlowUiOptionInventory> {
+    await this.prepareSession();
+    const session = this.requireSession();
+    const selectors = this.options.recipe.selectors;
+    const models = session.listOptionLabels
+      ? await session.listOptionLabels(selectors.modelControl)
+      : [];
+    const durations = session.listOptionLabels
+      ? await session.listOptionLabels(selectors.durationControl)
+      : [];
+    const resolutions = session.listOptionLabels
+      ? await session.listOptionLabels(selectors.resolutionControl)
+      : [];
+    const aspectRatios =
+      selectors.aspectRatioControl && session.listOptionLabels
+        ? await session.listOptionLabels(selectors.aspectRatioControl)
+        : [];
+    return { models, durations, resolutions, aspectRatios };
   }
 
   async submitGeneration(request: GenerationRequest): Promise<GenerationSubmission> {
+    const existingId = this.jobsByIdempotency.get(request.idempotencyKey);
+    if (existingId) {
+      const existing = this.jobs.get(existingId);
+      if (existing) {
+        return existing.submission;
+      }
+    }
+
     await this.prepareSession();
     const session = this.requireSession();
     const selectors = this.options.recipe.selectors;
 
     await this.assertNoHumanBlockers('submitGeneration:before');
 
-    await session.fill(selectors.promptInput, request.prompt);
-
-    if (this.options.recipe.modelOptionLabel) {
-      await session.selectOption(selectors.modelControl, this.options.recipe.modelOptionLabel);
-    } else {
-      await session.click(selectors.modelControl);
+    if (this.requireExactModelMatch) {
+      await this.assertRequestedOptionsAvailable(request);
     }
-    await session.selectOption(selectors.durationControl, String(request.durationSeconds));
-    await session.selectOption(selectors.resolutionControl, request.resolution);
-    await session.click(selectors.submitButton);
-
-    await this.assertNoHumanBlockers('submitGeneration:after');
 
     const submission: GenerationSubmission = {
       submissionId: randomUUID(),
@@ -163,12 +209,42 @@ export class GoogleFlowPlaywrightProvider implements VideoGenerationProvider {
       prompt: request.prompt,
     };
 
-    this.jobs.set(submission.submissionId, {
+    // Persist in-memory job BEFORE clicking Generate so a crash mid-click can be reconciled.
+    const job: LiveJob = {
       request,
       submission,
-      status: { state: 'running' },
+      status: { state: 'queued' },
       observedCost: 'unknown',
-    });
+      submitClicked: false,
+    };
+    this.jobs.set(submission.submissionId, job);
+    this.jobsByIdempotency.set(request.idempotencyKey, submission.submissionId);
+
+    await session.fill(selectors.promptInput, request.prompt);
+
+    const modelLabel = this.options.recipe.modelOptionLabel ?? request.model;
+    if (this.options.recipe.modelOptionLabel) {
+      await session.selectOption(selectors.modelControl, modelLabel);
+    } else {
+      await session.click(selectors.modelControl);
+      await session.selectOption(selectors.modelControl, request.model);
+    }
+    await session.selectOption(selectors.durationControl, String(request.durationSeconds));
+    await session.selectOption(selectors.resolutionControl, request.resolution);
+
+    const aspect =
+      request.aspectRatio ??
+      this.options.recipe.aspectRatioOptionLabel ??
+      undefined;
+    if (aspect && selectors.aspectRatioControl?.trim()) {
+      await session.selectOption(selectors.aspectRatioControl, aspect);
+    }
+
+    await session.click(selectors.submitButton);
+    job.submitClicked = true;
+    job.status = { state: 'running' };
+
+    await this.assertNoHumanBlockers('submitGeneration:after');
 
     return submission;
   }
@@ -224,9 +300,10 @@ export class GoogleFlowPlaywrightProvider implements VideoGenerationProvider {
       }
       await new Promise((resolve) => setTimeout(resolve, this.pollIntervalMs));
     }
+    // Timeout ≠ failure. Credits may already be consumed.
     return {
       state: 'needs_human_intervention',
-      message: `Timed out waiting for Flow UI result after ${timeoutMs}ms`,
+      message: `Timed out waiting for Flow UI result after ${timeoutMs}ms — do not assume generation failed; reconcile manually`,
     };
   }
 
@@ -247,6 +324,9 @@ export class GoogleFlowPlaywrightProvider implements VideoGenerationProvider {
     const session = this.requireSession();
     await session.downloadViaClick(this.options.recipe.selectors.downloadButton, destinationPath);
     const bytes = await readFile(destinationPath);
+    if (bytes.byteLength === 0) {
+      throw new Error('Downloaded Flow asset is empty (0 bytes)');
+    }
     const sha256 = createHash('sha256').update(bytes).digest('hex');
     job.localAssetPath = destinationPath;
 
@@ -254,7 +334,7 @@ export class GoogleFlowPlaywrightProvider implements VideoGenerationProvider {
       localPath: destinationPath,
       bytes: bytes.byteLength,
       sha256,
-      contentType: 'application/octet-stream',
+      contentType: 'video/mp4',
     };
   }
 
@@ -263,10 +343,50 @@ export class GoogleFlowPlaywrightProvider implements VideoGenerationProvider {
     return job?.observedCost ?? 'unknown';
   }
 
+  wasSubmitClicked(submissionId: string): boolean {
+    return this.jobs.get(submissionId)?.submitClicked === true;
+  }
+
   async dispose(): Promise<void> {
     if (this.session) {
       await this.session.close();
       this.session = null;
+    }
+  }
+
+  private async assertRequestedOptionsAvailable(request: GenerationRequest): Promise<void> {
+    const inventory = await this.inspectAvailableOptions();
+    const modelLabel = this.options.recipe.modelOptionLabel ?? request.model;
+    if (inventory.models.length > 0 && !inventory.models.some((m) => includesLoose(m, modelLabel))) {
+      throw new Error(
+        `Requested model "${modelLabel}" is not available in this Flow account. Observed: ${inventory.models.join(', ') || '(none)'}. Refusing silent substitution.`,
+      );
+    }
+    if (
+      inventory.durations.length > 0 &&
+      !inventory.durations.some((d) => includesLoose(d, String(request.durationSeconds)))
+    ) {
+      throw new Error(
+        `Requested duration ${request.durationSeconds}s is not available. Observed: ${inventory.durations.join(', ')}. Refusing silent substitution.`,
+      );
+    }
+    if (
+      inventory.resolutions.length > 0 &&
+      !inventory.resolutions.some((r) => includesLoose(r, request.resolution))
+    ) {
+      throw new Error(
+        `Requested resolution "${request.resolution}" is not available. Observed: ${inventory.resolutions.join(', ')}. Refusing silent substitution.`,
+      );
+    }
+    const aspect = request.aspectRatio ?? this.options.recipe.aspectRatioOptionLabel;
+    if (
+      aspect &&
+      inventory.aspectRatios.length > 0 &&
+      !inventory.aspectRatios.some((a) => includesLoose(a, aspect))
+    ) {
+      throw new Error(
+        `Requested aspect ratio "${aspect}" is not available. Observed: ${inventory.aspectRatios.join(', ')}. Refusing silent substitution.`,
+      );
     }
   }
 
@@ -277,23 +397,49 @@ export class GoogleFlowPlaywrightProvider implements VideoGenerationProvider {
     return this.session;
   }
 
-  private async detectHumanBlockers(): Promise<GenerationStatus | null> {
+  private async refreshSessionStatus(): Promise<void> {
     const session = this.requireSession();
     const selectors = this.options.recipe.selectors;
+
     if (selectors.captchaOrChallenge && (await session.isVisible(selectors.captchaOrChallenge))) {
-      const diagnosticPath = await this.captureDiagnostic('captcha');
-      return {
-        state: 'needs_human_intervention',
-        message: 'CAPTCHA or verification challenge detected — automation stopped',
-        diagnosticPath,
-      };
+      this.lastSessionStatus = 'HUMAN_INTERVENTION_REQUIRED';
+      this.lastSessionMessage =
+        'CAPTCHA or identity verification detected — complete it manually in the browser profile. Automation will not bypass security controls.';
+      await this.captureDiagnostic('captcha');
+      return;
     }
     if (selectors.loginRequired && (await session.isVisible(selectors.loginRequired))) {
-      const diagnosticPath = await this.captureDiagnostic('login-required');
+      this.lastSessionStatus = 'AUTHENTICATION_REQUIRED';
+      this.lastSessionMessage =
+        'Sign in to Google Flow manually in the persistent browser profile. Passwords are never stored in application configuration.';
+      await this.captureDiagnostic('login-required');
+      return;
+    }
+    if (selectors.workspaceReady) {
+      const ready = await session.isVisible(selectors.workspaceReady);
+      if (!ready) {
+        this.lastSessionStatus = 'SESSION_EXPIRED';
+        this.lastSessionMessage =
+          'Authenticated Flow workspace not visible — re-authenticate in the persistent profile.';
+        await this.captureDiagnostic('workspace-missing');
+        return;
+      }
+    }
+
+    this.lastSessionStatus = 'READY';
+    this.lastSessionMessage = 'Flow workspace appears accessible';
+  }
+
+  private async detectHumanBlockers(): Promise<GenerationStatus | null> {
+    await this.refreshSessionStatus();
+    if (
+      this.lastSessionStatus === 'AUTHENTICATION_REQUIRED' ||
+      this.lastSessionStatus === 'HUMAN_INTERVENTION_REQUIRED' ||
+      this.lastSessionStatus === 'SESSION_EXPIRED'
+    ) {
       return {
         state: 'needs_human_intervention',
-        message: 'Google sign-in required — complete login in the persistent profile manually',
-        diagnosticPath,
+        message: this.lastSessionMessage,
       };
     }
     return null;
@@ -312,4 +458,10 @@ export class GoogleFlowPlaywrightProvider implements VideoGenerationProvider {
     await session.screenshot(filePath);
     return filePath;
   }
+}
+
+function includesLoose(haystack: string, needle: string): boolean {
+  const a = haystack.toLowerCase().replace(/\s+/g, '');
+  const b = needle.toLowerCase().replace(/\s+/g, '');
+  return a.includes(b) || b.includes(a);
 }

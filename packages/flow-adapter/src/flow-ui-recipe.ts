@@ -12,6 +12,8 @@ export type FlowUiSelectors = {
   durationControl: string;
   /** Control used to pick resolution */
   resolutionControl: string;
+  /** Optional control used to pick aspect ratio (e.g. 9:16) */
+  aspectRatioControl?: string;
   /** Primary generate / submit control */
   submitButton: string;
   /** Element present when the result asset is ready */
@@ -24,6 +26,8 @@ export type FlowUiSelectors = {
   captchaOrChallenge?: string;
   /** Visible when the session needs interactive Google sign-in */
   loginRequired?: string;
+  /** Visible when the authenticated Flow workspace is ready */
+  workspaceReady?: string;
 };
 
 export type FlowUiRecipe = {
@@ -36,6 +40,8 @@ export type FlowUiRecipe = {
   selectors: FlowUiSelectors;
   /** Optional model option label/value to select in the UI */
   modelOptionLabel?: string;
+  /** Optional aspect ratio option label (intended: 9:16) */
+  aspectRatioOptionLabel?: string;
 };
 
 export const REQUIRED_SELECTOR_KEYS = [
@@ -51,6 +57,7 @@ export const REQUIRED_SELECTOR_KEYS = [
 export function createUnverifiedFlowUiRecipe(
   overrides?: Partial<Omit<FlowUiRecipe, 'selectors' | 'version'>> & {
     selectors?: Partial<FlowUiSelectors>;
+    aspectRatioOptionLabel?: string;
   },
 ): FlowUiRecipe {
   return {
@@ -62,16 +69,19 @@ export function createUnverifiedFlowUiRecipe(
       'Fill selectors after inspecting live Google Flow. Do not invent HTTP APIs or bypass CAPTCHA.',
     baseUrl: overrides?.baseUrl ?? '',
     modelOptionLabel: overrides?.modelOptionLabel,
+    aspectRatioOptionLabel: overrides?.aspectRatioOptionLabel,
     selectors: {
       promptInput: '',
       modelControl: '',
       durationControl: '',
       resolutionControl: '',
+      aspectRatioControl: '',
       submitButton: '',
       resultReady: '',
       downloadButton: '',
       captchaOrChallenge: '',
       loginRequired: '',
+      workspaceReady: '',
       ...overrides?.selectors,
     },
   };

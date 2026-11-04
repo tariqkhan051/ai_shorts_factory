@@ -24,10 +24,35 @@ export const createPlaywrightBrowserSession: FlowBrowserSessionFactory = async (
   await mkdir(options.profileDir, { recursive: true });
   await mkdir(options.diagnosticDir, { recursive: true });
 
-  const context = await playwright.chromium.launchPersistentContext(options.profileDir, {
-    headless: options.headless,
-    acceptDownloads: true,
-  });
+  // Prefer real Chrome/Edge when authenticating — Google blocks bundled Chromium sign-in.
+  const preferred =
+    options.channel?.trim() ||
+    process.env.FLOW_BROWSER_CHANNEL?.trim() ||
+    (options.headless ? '' : 'chrome');
+  const channelCandidates = preferred ? [preferred, 'msedge', ''] : [''];
+
+  let context: Awaited<ReturnType<typeof playwright.chromium.launchPersistentContext>> | null =
+    null;
+  let lastError: unknown = null;
+  for (const channel of channelCandidates) {
+    try {
+      context = await playwright.chromium.launchPersistentContext(options.profileDir, {
+        headless: options.headless,
+        acceptDownloads: true,
+        ...(channel ? { channel } : {}),
+      });
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (!context) {
+    throw new Error(
+      `Unable to launch browser for Flow session${
+        lastError instanceof Error ? `: ${lastError.message}` : ''
+      }`,
+    );
+  }
   const page = context.pages()[0] ?? (await context.newPage());
 
   return {
@@ -67,6 +92,33 @@ export const createPlaywrightBrowserSession: FlowBrowserSessionFactory = async (
     },
     async textContent(selector) {
       return page.locator(selector).first().textContent();
+    },
+    async listOptionLabels(selector) {
+      const locator = page.locator(selector).first();
+      const options = locator.locator('option');
+      const count = await options.count();
+      if (count > 0) {
+        const labels: string[] = [];
+        for (let i = 0; i < count; i += 1) {
+          const text = (await options.nth(i).textContent())?.trim();
+          if (text) labels.push(text);
+        }
+        return labels;
+      }
+      // Open control and collect nearby visible menu items when not a <select>.
+      try {
+        await locator.click({ timeout: 2_000 });
+      } catch {
+        return [];
+      }
+      const items = page.locator('[role="option"], [role="menuitem"], li[data-value]');
+      const itemCount = await items.count();
+      const labels: string[] = [];
+      for (let i = 0; i < Math.min(itemCount, 40); i += 1) {
+        const text = (await items.nth(i).textContent())?.trim();
+        if (text) labels.push(text);
+      }
+      return labels;
     },
     async screenshot(filePath) {
       await page.screenshot({ path: filePath, fullPage: true });

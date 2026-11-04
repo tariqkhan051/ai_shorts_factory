@@ -108,5 +108,42 @@ describe('SequentialGenerationRunner', () => {
     const balances = await credits.getBalances(userId);
     expect(balances.unknownConsumption).toBe(10);
     expect(balances.confirmedSpent).toBe(0);
+    const snapshot = await store.getProjectSnapshot(userId, projectId);
+    expect(snapshot.scenes[0]?.state).toBe('UNKNOWN_SUBMISSION');
+  });
+
+  it('enforces canary maxScenes=1 and does not continue to scene 2', async () => {
+    const result = await runner.runProject(userId, projectId, {
+      workerId: 'test-worker',
+      maxScenes: 1,
+      assetOrigin: 'MOCK',
+    });
+    expect(result.completed).toBe(1);
+    const snapshot = await store.getProjectSnapshot(userId, projectId);
+    expect(snapshot.workflowState).toBe('PAUSED');
+    expect(snapshot.scenes.filter((scene) => scene.state === 'COMPLETED')).toHaveLength(1);
+    expect(snapshot.scenes.find((scene) => scene.sceneNumber === 2)?.state).toBe('PENDING');
+  });
+
+  it('refuses live spend without explicit confirmation', async () => {
+    await expect(
+      runner.runProject(userId, projectId, {
+        workerId: 'test-worker',
+        maxScenes: 1,
+        requireSpendConfirmation: true,
+        spendConfirmationAccepted: false,
+        assetOrigin: 'REAL_GENERATED',
+      }),
+    ).rejects.toThrow(/explicit operator confirmation/i);
+  });
+
+  it('refuses automatic retry of UNKNOWN_SUBMISSION without confirmation', async () => {
+    await runner.runProject(userId, projectId, {
+      workerId: 'test-worker',
+      failOnSceneNumber: 1,
+      failMode: 'after_submit_uncertain',
+    });
+    const blocked = await runner.runProject(userId, projectId, { workerId: 'test-worker' });
+    expect(blocked.failed).toMatch(/UNKNOWN_SUBMISSION/i);
   });
 });

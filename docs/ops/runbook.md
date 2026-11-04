@@ -43,6 +43,8 @@
 
 Stop and page a human when Playwright hits CAPTCHA, login walls, or unverified UI. Never invent Flow HTTP APIs. Never spend credits from CI.
 
+Live canary procedure, browser auth, and credit reconciliation: `docs/ops/google-flow-setup.md`. Default canary is preflight-only (`FLOW_EXECUTE_LIVE` unset/false).
+
 ## Shared queue limitation
 
 Web inline ticks and worker processes currently use **separate in-memory queues**. For multi-process production, implement a Postgres `JobQueue` using service-role RPCs before enabling keepalive workers against live traffic.

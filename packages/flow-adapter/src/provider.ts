@@ -47,7 +47,16 @@ export type GenerationRequest = {
   model: string;
   durationSeconds: number;
   resolution: string;
+  /** Vertical short format by default (9:16). Must exist in the operator's Flow UI. */
+  aspectRatio?: string;
   referenceAssetPaths?: string[];
+};
+
+export type FlowUiOptionInventory = {
+  models: string[];
+  durations: string[];
+  resolutions: string[];
+  aspectRatios: string[];
 };
 
 export interface VideoGenerationProvider {

@@ -16,8 +16,8 @@ export default function SettingsPage() {
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
         <p className="max-w-2xl text-muted">
-          Runtime configuration overview. Phase {PHASE.current}: realtime alerts and PWA install are
-          available; live Google Flow stays gated until UI selectors are verified.
+          Runtime configuration overview. Phase {PHASE.current}: mock generation and assembly are
+          production-minded; live Google Flow stays canary-gated until Scene 1 is manually reviewed.
         </p>
       </div>
 
@@ -32,6 +32,7 @@ export default function SettingsPage() {
             ['Default model', BUSINESS_DEFAULTS.defaultGenerationModel],
             ['Clip duration', `${BUSINESS_DEFAULTS.defaultGenerationDurationSeconds}s`],
             ['Clip resolution', BUSINESS_DEFAULTS.defaultGenerationResolution],
+            ['Aspect ratio', BUSINESS_DEFAULTS.defaultGenerationAspectRatio],
             [
               'Final frame size',
               `${BUSINESS_DEFAULTS.finalVideoTargetWidth}×${BUSINESS_DEFAULTS.finalVideoTargetHeight}`,
@@ -51,18 +52,28 @@ export default function SettingsPage() {
 
       <section className="space-y-4 rounded-lg border border-border bg-background-elevated/50 p-5">
         <div>
-          <h2 className="text-lg font-medium">Google Flow (Phase 4)</h2>
+          <h2 className="text-lg font-medium">Google Flow integration</h2>
           <p className="mt-1 text-sm text-muted">
             Playwright automation never invents Flow HTTP APIs. CAPTCHA / login walls stop the
             worker for human intervention. CI must keep{' '}
-            <span className="font-mono">FLOW_PROVIDER=mock</span>.
+            <span className="font-mono">FLOW_PROVIDER=mock</span>. Passwords are never stored in
+            env — only a local browser profile directory.
           </p>
         </div>
         <dl className="grid gap-3 sm:grid-cols-2">
           {(
             [
               ['Configured provider', flow.provider],
+              ['Session status', flow.session.status],
               ['Live enabled', flow.liveEnabled ? 'yes' : 'no'],
+              ['Canary only', flow.canaryOnly ? 'yes' : 'no'],
+              ['Max live scenes / project', String(flow.maxLiveScenesPerProject)],
+              ['Selected model', flow.model],
+              ['Flow UI model label', flow.modelOptionLabel],
+              ['Aspect ratio', flow.aspectRatio],
+              ['Resolution', flow.resolution],
+              ['Duration', `${flow.durationSeconds}s`],
+              ['Daily credit budget', String(flow.maxDailyCreditBudget)],
               ['UI verified flag', flow.uiVerifiedFlag ? 'yes' : 'no'],
               ['Recipe verified', flow.recipeVerified ? 'yes' : 'no'],
               ['Profile configured', flow.profileConfigured ? 'yes' : 'no'],
@@ -75,6 +86,7 @@ export default function SettingsPage() {
             </div>
           ))}
         </dl>
+        <p className="text-sm text-muted">{flow.session.message}</p>
         {!flow.gatesOk ? (
           <div className="space-y-2 text-sm text-muted">
             <p className="font-medium text-foreground">Gate reasons</p>
@@ -84,20 +96,14 @@ export default function SettingsPage() {
               ))}
             </ul>
             <p>
-              After inspecting live Flow, fill{' '}
-              <span className="font-mono">
-                packages/flow-adapter/recipes/google-flow.unverified.json
-              </span>
-              , set <span className="font-mono">FLOW_UI_VERIFIED=true</span>, then run{' '}
-              <span className="font-mono">
-                pnpm --filter @ai-shorts-factory/flow-worker verify:scene
-              </span>
-              .
+              See <span className="font-mono">docs/ops/google-flow-setup.md</span> for browser
+              authentication and canary procedure.
             </p>
           </div>
         ) : (
           <p className="text-sm text-success">
-            Live gates open for worker verify. Web mock generation remains the default product path.
+            Live gates open for worker canary. Web mock generation remains available. Five-scene
+            live stays locked until canary review.
           </p>
         )}
       </section>

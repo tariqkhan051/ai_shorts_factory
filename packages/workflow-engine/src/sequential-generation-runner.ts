@@ -11,15 +11,28 @@ import type {
   GenerationSceneRecord,
   GenerationStore,
 } from './generation-types.js';
+import { resolveEffectiveMaxScenes } from './generation-types.js';
+import {
+  releaseLiveGenerationSlot,
+  tryAcquireLiveGenerationSlot,
+} from './live-generation-lock.js';
 
 export type SceneGenerationResult =
   | { status: 'completed'; scene: GenerationSceneRecord }
   | { status: 'failed'; scene: GenerationSceneRecord; pauseProject: true; message: string }
   | { status: 'skipped'; scene: GenerationSceneRecord };
 
+const BLOCKING_RETRY_STATES = new Set([
+  'UNKNOWN_SUBMISSION',
+  'DOWNLOAD_FAILED',
+  'VERIFICATION_FAILED',
+  'NEEDS_ATTENTION',
+]);
+
 /**
  * Sequential mock/live-capable scene generation.
  * Never auto-retries failed scenes. Never regenerates completed scenes.
+ * Never blindly re-submits after an uncertain Flow click.
  */
 export class SequentialGenerationRunner {
   constructor(
@@ -34,6 +47,8 @@ export class SequentialGenerationRunner {
     projectId: string,
     options: GenerationRunnerOptions,
   ): Promise<{ completed: number; failed?: string }> {
+    this.assertSpendConfirmation(options);
+
     const snapshot = await this.store.getProjectSnapshot(userId, projectId);
     const scenes = await this.store.ensureScenesFromScreenplay(
       userId,
@@ -55,7 +70,7 @@ export class SequentialGenerationRunner {
 
     await this.reachGeneratingScenes(userId, projectId, snapshot.workflowState);
 
-    const maxScenes = options.maxScenes;
+    const maxScenes = resolveEffectiveMaxScenes(options);
     let attempted = 0;
 
     for (const scene of scenes.sort((a, b) => a.sceneNumber - b.sceneNumber)) {
@@ -64,6 +79,28 @@ export class SequentialGenerationRunner {
       }
       if (typeof maxScenes === 'number' && attempted >= maxScenes) {
         break;
+      }
+
+      if (scene.state === 'SUBMITTING') {
+        await this.store.updateScene(userId, projectId, scene.id, {
+          state: 'UNKNOWN_SUBMISSION',
+          errorMessage:
+            'Worker interrupted while submitting to Flow. Treat credit consumption as unknown until reconciled.',
+          submissionAttempted: true,
+        });
+        await this.store.setProjectWorkflowState(userId, projectId, 'PAUSED');
+        return {
+          completed,
+          failed: `Scene ${scene.sceneNumber} left in SUBMITTING — marked UNKNOWN_SUBMISSION. Manual reconciliation required.`,
+        };
+      }
+
+      if (scene.submissionAttempted && BLOCKING_RETRY_STATES.has(scene.state)) {
+        await this.store.setProjectWorkflowState(userId, projectId, 'PAUSED');
+        return {
+          completed,
+          failed: `Scene ${scene.sceneNumber} is ${scene.state}. Manual reconciliation and explicit retry confirmation required — refusing automatic re-submit.`,
+        };
       }
 
       attempted += 1;
@@ -84,7 +121,7 @@ export class SequentialGenerationRunner {
       return { completed };
     }
 
-    // Partial runs (e.g. Phase 4 single-scene verify) pause for operator review.
+    // Partial runs (canary / single-scene verify) pause for operator review.
     await this.store.setProjectWorkflowState(userId, projectId, 'PAUSED');
     if (typeof maxScenes === 'number' && attempted > 0 && !options.failOnSceneNumber) {
       return { completed };
@@ -98,6 +135,8 @@ export class SequentialGenerationRunner {
     sceneNumber: number,
     options: GenerationRunnerOptions,
   ): Promise<SceneGenerationResult> {
+    this.assertSpendConfirmation(options);
+
     const snapshot = await this.store.getProjectSnapshot(userId, projectId);
     const scenes = await this.store.ensureScenesFromScreenplay(
       userId,
@@ -112,7 +151,19 @@ export class SequentialGenerationRunner {
       return { status: 'skipped', scene };
     }
 
-    // Only earlier scenes that are completed (or this is scene 1) may proceed.
+    if (scene.submissionAttempted && scene.state === 'UNKNOWN_SUBMISSION') {
+      if (!options.unknownSubmissionReconciled) {
+        throw new Error(
+          'Scene has UNKNOWN_SUBMISSION. Reconcile credits against the Google Flow account, then retry only with unknownSubmissionReconciled=true.',
+        );
+      }
+      if (options.requireSpendConfirmation && !options.spendConfirmationAccepted) {
+        throw new Error(
+          'Scene has UNKNOWN_SUBMISSION. Explicit spend confirmation is still required before another paid attempt.',
+        );
+      }
+    }
+
     const blockers = scenes.filter(
       (item) => item.sceneNumber < sceneNumber && item.state !== 'COMPLETED',
     );
@@ -134,6 +185,14 @@ export class SequentialGenerationRunner {
       await this.store.setProjectWorkflowState(userId, projectId, 'ASSEMBLY_READY');
     }
     return result;
+  }
+
+  private assertSpendConfirmation(options: GenerationRunnerOptions): void {
+    if (options.requireSpendConfirmation && !options.spendConfirmationAccepted) {
+      throw new Error(
+        'Live Google Flow spend requires explicit operator confirmation (preflight token + SPEND_REAL_CREDITS). Refusing to start.',
+      );
+    }
   }
 
   private async reachGeneratingScenes(
@@ -193,192 +252,360 @@ export class SequentialGenerationRunner {
     const durationSeconds =
       options.durationSeconds ?? BUSINESS_DEFAULTS.defaultGenerationDurationSeconds;
     const resolution = options.resolution ?? BUSINESS_DEFAULTS.defaultGenerationResolution;
-    // Fresh attempt id so manual retries never reuse a released/unknown reservation
-    // or a prior provider submission idempotency key.
+    const aspectRatio = options.aspectRatio ?? BUSINESS_DEFAULTS.defaultGenerationAspectRatio;
+    const assetOrigin = options.assetOrigin ?? 'MOCK';
     const attemptId = randomUUID();
     const idempotencyKey = `${projectId}:scene:${scene.sceneNumber}:attempt:${attemptId}`;
 
-    let working = await this.store.updateScene(userId, projectId, scene.id, {
-      state: 'GENERATING',
-      errorMessage: undefined,
-      submissionId: undefined,
-      reservationId: undefined,
-      assetStorageKey: undefined,
-      assetChecksum: undefined,
-    });
-
-    const reservation = await this.credits.reserve({
-      userId,
-      amount: estimatedCost,
-      projectId,
-      idempotencyKey: `reserve:${idempotencyKey}`,
-      metadata: { sceneNumber: scene.sceneNumber, attemptId },
-    });
-
-    working = await this.store.updateScene(userId, projectId, scene.id, {
-      reservationId: reservation.id,
-    });
-
-    if (options.failOnSceneNumber === scene.sceneNumber && options.failMode === 'before_submit') {
-      await this.credits.releaseReservation(reservation.id, {
-        reason: 'injected_before_submit',
-      });
-      working = await this.store.updateScene(userId, projectId, scene.id, {
-        state: 'FAILED',
-        errorMessage: 'Injected failure before submit',
-      });
-      return {
-        status: 'failed',
-        scene: working,
-        pauseProject: true,
-        message: working.errorMessage ?? 'Scene failed before submit',
-      };
+    const liveLockNeeded = assetOrigin === 'REAL_GENERATED' || options.requireSpendConfirmation;
+    if (liveLockNeeded) {
+      const acquired = tryAcquireLiveGenerationSlot(
+        BUSINESS_DEFAULTS.maxSimultaneousLiveGenerations,
+      );
+      if (!acquired) {
+        const working = await this.store.updateScene(userId, projectId, scene.id, {
+          state: 'NEEDS_ATTENTION',
+          errorMessage: 'Another live generation is already in progress (max simultaneous = 1)',
+        });
+        return {
+          status: 'failed',
+          scene: working,
+          pauseProject: true,
+          message: working.errorMessage ?? 'Live concurrency lock held',
+        };
+      }
     }
 
-    let submissionId: string | undefined;
     try {
-      const config = await this.provider.validateConfiguration();
-      if (!config.ok) {
-        throw new Error(config.message);
-      }
-      await this.provider.prepareSession();
-
-      const submission = await this.provider.submitGeneration({
-        idempotencyKey,
-        prompt: scene.flowPrompt,
-        model,
-        durationSeconds,
-        resolution,
-      });
-      submissionId = submission.submissionId;
-
-      working = await this.store.updateScene(userId, projectId, scene.id, {
-        submissionId,
+      let working = await this.store.updateScene(userId, projectId, scene.id, {
         state: 'GENERATING',
+        errorMessage: undefined,
+        submissionId: undefined,
+        reservationId: undefined,
+        assetStorageKey: undefined,
+        assetChecksum: undefined,
+        assetMetadata: undefined,
+        idempotencyKey,
+        submissionAttempted: false,
+        assetOrigin,
       });
 
-      if (
-        options.failOnSceneNumber === scene.sceneNumber &&
-        options.failMode === 'after_submit_uncertain'
-      ) {
-        await this.credits.markUnknown(reservation.id, {
-          reason: 'injected_uncertain_after_submit',
-        });
-        working = await this.store.updateScene(userId, projectId, scene.id, {
-          state: 'NEEDS_ATTENTION',
-          errorMessage: 'Injected uncertain failure after submit',
-        });
-        return {
-          status: 'failed',
-          scene: working,
-          pauseProject: true,
-          message: working.errorMessage ?? 'Uncertain generation failure',
-        };
-      }
-
-      const status = await this.provider.waitForCompletion(submission.submissionId);
-      if (status.state !== 'completed') {
-        // Submission happened; do not assume zero cost.
-        await this.credits.markUnknown(reservation.id, {
-          reason: 'generation_not_completed',
-          status,
-        });
-        working = await this.store.updateScene(userId, projectId, scene.id, {
-          state: 'FAILED',
-          errorMessage:
-            status.state === 'failed' || status.state === 'needs_human_intervention'
-              ? status.message
-              : 'Generation did not complete',
-        });
-        return {
-          status: 'failed',
-          scene: working,
-          pauseProject: true,
-          message: working.errorMessage ?? 'Generation failed',
-        };
-      }
+      const reservation = await this.credits.reserve({
+        userId,
+        amount: estimatedCost,
+        projectId,
+        idempotencyKey: `reserve:${idempotencyKey}`,
+        metadata: { sceneNumber: scene.sceneNumber, attemptId, assetOrigin },
+      });
 
       working = await this.store.updateScene(userId, projectId, scene.id, {
-        state: 'DOWNLOADING',
+        reservationId: reservation.id,
       });
 
-      if (options.failOnSceneNumber === scene.sceneNumber && options.failMode === 'download') {
-        await this.credits.markUnknown(reservation.id, { reason: 'injected_download_failure' });
+      if (options.failOnSceneNumber === scene.sceneNumber && options.failMode === 'before_submit') {
+        await this.credits.releaseReservation(reservation.id, {
+          reason: 'injected_before_submit',
+        });
         working = await this.store.updateScene(userId, projectId, scene.id, {
           state: 'FAILED',
-          errorMessage: 'Injected download failure',
+          errorMessage: 'Injected failure before submit',
         });
         return {
           status: 'failed',
           scene: working,
           pauseProject: true,
-          message: working.errorMessage ?? 'Download failed',
+          message: working.errorMessage ?? 'Scene failed before submit',
         };
       }
 
-      const tempRoot = await mkdtemp(join(tmpdir(), 'asf-scene-'));
+      let submissionId: string | undefined;
+      let submitClicked = false;
       try {
-        const localPath = join(tempRoot, `scene-${scene.sceneNumber}.bin`);
-        const downloaded = await this.provider.downloadAsset(submission.submissionId, localPath);
-        const { readFile } = await import('node:fs/promises');
-        const bytes = await readFile(downloaded.localPath);
+        const config = await this.provider.validateConfiguration();
+        if (!config.ok) {
+          throw new Error(config.message);
+        }
+        await this.provider.prepareSession();
+
+        // Persist submission intent BEFORE interacting with Flow Generate.
+        // If the process dies here, restart promotes SUBMITTING → UNKNOWN_SUBMISSION.
+        working = await this.store.updateScene(userId, projectId, scene.id, {
+          state: 'SUBMITTING',
+          submissionAttempted: false,
+          idempotencyKey,
+        });
+
+        const submission = await this.provider.submitGeneration({
+          idempotencyKey,
+          prompt: scene.flowPrompt,
+          model,
+          durationSeconds,
+          resolution,
+          aspectRatio,
+        });
+        submissionId = submission.submissionId;
+        submitClicked = true;
 
         working = await this.store.updateScene(userId, projectId, scene.id, {
-          state: 'VERIFYING',
+          submissionId,
+          state: 'GENERATING',
+          submissionAttempted: true,
         });
 
-        const storageKey = `users/${userId}/projects/${projectId}/scenes/scene-${scene.sceneNumber}-${submission.submissionId}.bin`;
-        const stored = await this.storage.putObject({
-          key: storageKey,
-          body: bytes,
-          contentType: downloaded.contentType,
-          checksumSha256: downloaded.sha256,
-        });
-
-        const observed = await this.provider.getObservedCreditCost(submission.submissionId);
-        if (observed === 'unknown') {
-          await this.credits.markUnknown(reservation.id, { reason: 'provider_unknown_cost' });
-        } else {
-          await this.credits.confirmSpend(reservation.id, observed, {
-            submissionId: submission.submissionId,
+        if (
+          options.failOnSceneNumber === scene.sceneNumber &&
+          options.failMode === 'after_submit_uncertain'
+        ) {
+          await this.credits.markUnknown(reservation.id, {
+            reason: 'injected_uncertain_after_submit',
           });
+          working = await this.store.updateScene(userId, projectId, scene.id, {
+            state: 'UNKNOWN_SUBMISSION',
+            errorMessage: 'Injected uncertain failure after submit',
+          });
+          return {
+            status: 'failed',
+            scene: working,
+            pauseProject: true,
+            message: working.errorMessage ?? 'Uncertain generation failure',
+          };
+        }
+
+        const status = await this.provider.waitForCompletion(submission.submissionId);
+        if (status.state !== 'completed') {
+          await this.credits.markUnknown(reservation.id, {
+            reason: 'generation_not_completed',
+            status,
+          });
+          const attentionState =
+            status.state === 'needs_human_intervention' ? 'NEEDS_ATTENTION' : 'UNKNOWN_SUBMISSION';
+          working = await this.store.updateScene(userId, projectId, scene.id, {
+            state: attentionState,
+            errorMessage:
+              status.state === 'failed' || status.state === 'needs_human_intervention'
+                ? status.message
+                : 'Generation did not complete — do not assume zero credit cost',
+          });
+          return {
+            status: 'failed',
+            scene: working,
+            pauseProject: true,
+            message: working.errorMessage ?? 'Generation failed',
+          };
         }
 
         working = await this.store.updateScene(userId, projectId, scene.id, {
-          state: 'COMPLETED',
-          assetStorageKey: stored.key,
-          assetChecksum: stored.checksumSha256,
-          errorMessage: undefined,
+          state: 'DOWNLOADING',
         });
 
-        return { status: 'completed', scene: working };
-      } finally {
-        await rm(tempRoot, { recursive: true, force: true });
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Scene generation failed';
-      if (submissionId) {
-        await this.credits.markUnknown(reservation.id, {
-          reason: 'exception_after_submit',
+        if (options.failOnSceneNumber === scene.sceneNumber && options.failMode === 'download') {
+          await this.credits.markUnknown(reservation.id, { reason: 'injected_download_failure' });
+          working = await this.store.updateScene(userId, projectId, scene.id, {
+            state: 'DOWNLOAD_FAILED',
+            errorMessage: 'Injected download failure',
+          });
+          return {
+            status: 'failed',
+            scene: working,
+            pauseProject: true,
+            message: working.errorMessage ?? 'Download failed',
+          };
+        }
+
+        const tempRoot = await mkdtemp(join(tmpdir(), 'asf-scene-'));
+        try {
+          const localPath = join(tempRoot, `scene-${scene.sceneNumber}.mp4`);
+          let downloaded;
+          try {
+            downloaded = await this.provider.downloadAsset(submission.submissionId, localPath);
+          } catch (downloadError) {
+            const message =
+              downloadError instanceof Error ? downloadError.message : 'Download failed';
+            await this.credits.markUnknown(reservation.id, {
+              reason: 'download_failed',
+              message,
+            });
+            working = await this.store.updateScene(userId, projectId, scene.id, {
+              state: 'DOWNLOAD_FAILED',
+              errorMessage: message,
+            });
+            return {
+              status: 'failed',
+              scene: working,
+              pauseProject: true,
+              message,
+            };
+          }
+
+          if (downloaded.bytes <= 0) {
+            await this.credits.markUnknown(reservation.id, { reason: 'empty_download' });
+            working = await this.store.updateScene(userId, projectId, scene.id, {
+              state: 'DOWNLOAD_FAILED',
+              errorMessage: 'Downloaded asset is empty',
+            });
+            return {
+              status: 'failed',
+              scene: working,
+              pauseProject: true,
+              message: 'Downloaded asset is empty',
+            };
+          }
+
+          const { readFile } = await import('node:fs/promises');
+          const bytes = await readFile(downloaded.localPath);
+
+          working = await this.store.updateScene(userId, projectId, scene.id, {
+            state: 'VERIFYING',
+          });
+
+          let assetMetadata: NonNullable<GenerationSceneRecord['assetMetadata']> = {
+            bytes: downloaded.bytes,
+            sha256: downloaded.sha256,
+            contentType: downloaded.contentType,
+            originalDownloadPreserved: true,
+            probedAt: new Date().toISOString(),
+          };
+
+          if (options.verifyDownloadedAsset) {
+            const verification = await options.verifyDownloadedAsset(downloaded.localPath);
+            if (!verification.ok) {
+              await this.credits.markUnknown(reservation.id, {
+                reason: 'verification_failed',
+                message: verification.reason,
+              });
+              working = await this.store.updateScene(userId, projectId, scene.id, {
+                state: 'VERIFICATION_FAILED',
+                errorMessage: verification.reason,
+              });
+              return {
+                status: 'failed',
+                scene: working,
+                pauseProject: true,
+                message: verification.reason,
+              };
+            }
+            assetMetadata = {
+              ...assetMetadata,
+              durationSeconds: verification.durationSeconds,
+              width: verification.width,
+              height: verification.height,
+              hasVideo: true,
+            };
+          }
+
+          if (
+            options.failOnSceneNumber === scene.sceneNumber &&
+            options.failMode === 'verification'
+          ) {
+            await this.credits.markUnknown(reservation.id, {
+              reason: 'injected_verification_failure',
+            });
+            working = await this.store.updateScene(userId, projectId, scene.id, {
+              state: 'VERIFICATION_FAILED',
+              errorMessage: 'Injected verification failure',
+            });
+            return {
+              status: 'failed',
+              scene: working,
+              pauseProject: true,
+              message: 'Injected verification failure',
+            };
+          }
+
+          const extension = assetOrigin === 'REAL_GENERATED' ? 'mp4' : 'bin';
+          const storageKey = `users/${userId}/projects/${projectId}/scenes/scene-${scene.sceneNumber}-${submission.submissionId}.${extension}`;
+          const originalKey = `users/${userId}/projects/${projectId}/scenes/originals/scene-${scene.sceneNumber}-${submission.submissionId}.${extension}`;
+
+          const stored = await this.storage.putObject({
+            key: storageKey,
+            body: bytes,
+            contentType: downloaded.contentType,
+            checksumSha256: downloaded.sha256,
+          });
+
+          // Preserve original download bytes under a separate key.
+          await this.storage.putObject({
+            key: originalKey,
+            body: bytes,
+            contentType: downloaded.contentType,
+            checksumSha256: downloaded.sha256,
+          });
+
+          const observed = await this.provider.getObservedCreditCost(submission.submissionId);
+          // Never confirm estimated/reserved amounts as actual spend.
+          if (observed === 'unknown' || typeof observed !== 'number' || !Number.isFinite(observed)) {
+            await this.credits.markUnknown(reservation.id, {
+              reason: 'provider_unknown_cost',
+              submissionId: submission.submissionId,
+              estimatedCost,
+            });
+          } else {
+            await this.credits.confirmSpend(reservation.id, observed, {
+              submissionId: submission.submissionId,
+              observedCost: observed,
+              estimatedCost,
+            });
+          }
+
+          working = await this.store.updateScene(userId, projectId, scene.id, {
+            state: 'COMPLETED',
+            assetStorageKey: stored.key,
+            assetChecksum: stored.checksumSha256,
+            assetOrigin,
+            assetMetadata,
+            errorMessage: undefined,
+          });
+
+          return { status: 'completed', scene: working };
+        } finally {
+          await rm(tempRoot, { recursive: true, force: true });
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Scene generation failed';
+        if (submissionId || submitClicked) {
+          await this.credits.markUnknown(reservation.id, {
+            reason: 'exception_after_submit',
+            message,
+          });
+          working = await this.store.updateScene(userId, projectId, scene.id, {
+            state: 'UNKNOWN_SUBMISSION',
+            errorMessage: message,
+            submissionId,
+            submissionAttempted: true,
+          });
+        } else if (working.state === 'SUBMITTING') {
+          // Uncertain whether Generate was clicked (UI drift / crash during submit call).
+          await this.credits.markUnknown(reservation.id, {
+            reason: 'uncertain_during_submit',
+            message,
+          });
+          working = await this.store.updateScene(userId, projectId, scene.id, {
+            state: 'UNKNOWN_SUBMISSION',
+            errorMessage: message,
+            submissionAttempted: true,
+          });
+        } else {
+          await this.credits.releaseReservation(reservation.id, {
+            reason: 'exception_before_submit',
+            message,
+          });
+          working = await this.store.updateScene(userId, projectId, scene.id, {
+            state: 'FAILED',
+            errorMessage: message,
+            submissionId,
+          });
+        }
+        return {
+          status: 'failed',
+          scene: working,
+          pauseProject: true,
           message,
-        });
-      } else {
-        await this.credits.releaseReservation(reservation.id, {
-          reason: 'exception_before_submit',
-          message,
-        });
+        };
       }
-      working = await this.store.updateScene(userId, projectId, scene.id, {
-        state: submissionId ? 'NEEDS_ATTENTION' : 'FAILED',
-        errorMessage: message,
-        submissionId,
-      });
-      return {
-        status: 'failed',
-        scene: working,
-        pauseProject: true,
-        message,
-      };
+    } finally {
+      if (liveLockNeeded) {
+        releaseLiveGenerationSlot();
+      }
     }
   }
 }

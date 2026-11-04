@@ -6,6 +6,10 @@ export type FlowLiveGateInput = {
   recipeVerified: boolean;
   nodeEnv?: string;
   ci?: string;
+  /** When true, also require FLOW_EXECUTE_LIVE / canary flags for execute paths. */
+  requireExecuteLive?: boolean;
+  flowExecuteLive?: string;
+  flowCanaryOnly?: string;
 };
 
 export type FlowLiveGateResult = { ok: true } | { ok: false; reasons: string[] };
@@ -40,8 +44,37 @@ export function evaluateFlowLiveGates(input: FlowLiveGateInput): FlowLiveGateRes
   if (nodeEnv === 'test') {
     reasons.push('NODE_ENV=test must not open live Flow');
   }
+  if (input.requireExecuteLive) {
+    if (input.flowExecuteLive !== 'true') {
+      reasons.push('FLOW_EXECUTE_LIVE must be true to spend real credits');
+    }
+    if (input.flowCanaryOnly === 'false') {
+      // Unlock is allowed only after canary review; still valid for gates.
+    } else if (input.flowCanaryOnly !== 'true' && input.flowCanaryOnly !== undefined) {
+      reasons.push('FLOW_CANARY_ONLY must be true or false');
+    }
+  }
 
   return reasons.length === 0 ? { ok: true } : { ok: false, reasons };
+}
+
+/** Extra gates for the canary execute path (not required for mere provider construction). */
+export function evaluateFlowExecuteGates(
+  env: NodeJS.ProcessEnv,
+  recipeVerified: boolean,
+): FlowLiveGateResult {
+  return evaluateFlowLiveGates({
+    flowProvider: env.FLOW_PROVIDER,
+    flowLiveEnabled: env.FLOW_LIVE_ENABLED,
+    flowUiVerified: env.FLOW_UI_VERIFIED,
+    browserProfileDir: env.FLOW_BROWSER_PROFILE_DIR,
+    recipeVerified,
+    nodeEnv: env.NODE_ENV,
+    ci: env.CI,
+    requireExecuteLive: true,
+    flowExecuteLive: env.FLOW_EXECUTE_LIVE,
+    flowCanaryOnly: env.FLOW_CANARY_ONLY,
+  });
 }
 
 export function readFlowLiveGateEnv(

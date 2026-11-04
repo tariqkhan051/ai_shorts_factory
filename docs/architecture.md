@@ -89,8 +89,8 @@ Workers never run generation or FFmpeg inside HTTP request handlers.
 | Cost per scene (expected)          | 10 credits                                     |
 | Generations per video              | 5                                              |
 | Max final duration                 | 59s (target ~30–40s)                           |
-| Default model                      | Gemini Omni Flash (configurable; verify in UI) |
-| Default clip duration / resolution | 6s / 720p                                      |
+| Default model                      | Veo 3.1 - Lite (configurable via `DEFAULT_GENERATION_MODEL` / `FLOW_MODEL_OPTION_LABEL`; verify in UI) |
+| Default clip duration / resolution | 6s / 720p (Veo Lite Scenes UI also showed 8s / 720p) |
 | Generation order                   | Sequential; no auto-replacement                |
 | Publishing                         | Download/review only initially                 |
 
@@ -113,7 +113,7 @@ Implementations:
 | Provider                       | Phase | Status                                                 |
 | ------------------------------ | ----- | ------------------------------------------------------ |
 | `MockVideoGenerationProvider`  | 0     | Implemented for dev/tests                              |
-| `GoogleFlowPlaywrightProvider` | 4     | Implemented; requires verified recipe + live env gates |
+| `GoogleFlowPlaywrightProvider` | 4–7   | Implemented; canary-gated live UI automation           |
 
 Security constraints for live Flow:
 

@@ -35,6 +35,9 @@ importers:
       '@ai-shorts-factory/flow-adapter':
         specifier: workspace:*
         version: link:../../packages/flow-adapter
+      '@ai-shorts-factory/media-engine':
+        specifier: workspace:*
+        version: link:../../packages/media-engine
       '@ai-shorts-factory/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types

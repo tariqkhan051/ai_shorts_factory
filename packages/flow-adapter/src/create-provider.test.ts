@@ -19,4 +19,16 @@ describe('createVideoGenerationProvider', () => {
     expect(status.gatesOk).toBe(false);
     expect(status.provider).toBe('mock');
   });
+
+  it('refuses to construct live provider under NODE_ENV=test', () => {
+    expect(() =>
+      createVideoGenerationProvider({
+        env: {
+          FLOW_PROVIDER: 'google-flow',
+          FLOW_LIVE_ENABLED: 'true',
+          NODE_ENV: 'test',
+        },
+      }),
+    ).toThrow(/Refusing live FLOW_PROVIDER/i);
+  });
 });
