@@ -1,0 +1,38 @@
+{
+  "name": "@ai-shorts-factory/web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rimraf .next"
+  },
+  "dependencies": {
+    "@ai-shorts-factory/database": "workspace:*",
+    "@ai-shorts-factory/shared-types": "workspace:*",
+    "@ai-shorts-factory/storage": "workspace:*",
+    "@ai-shorts-factory/validation": "workspace:*",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.49.1",
+    "next": "^15.5.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "^15.5.7",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
