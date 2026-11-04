@@ -48,6 +48,11 @@ export async function assembleProjectForUser(
   const assemblyStore = getAssemblyRecordStore();
   const store = new AppGenerationStore(projects, stories, characters);
 
+  const project = await projects.getById(userId, projectId);
+  if (!project) {
+    throw new Error('Project not found');
+  }
+
   const snapshot = await store.getProjectSnapshot(userId, projectId);
   if (
     snapshot.workflowState !== 'ASSEMBLY_READY' &&
@@ -97,10 +102,14 @@ export async function assembleProjectForUser(
       upscaledFromLowerResolution: true,
       sceneCount: BUSINESS_DEFAULTS.sceneCount,
       completedSceneCount: completed.length,
-      notes:
-        assemblyMode === 'mock'
+      notes: [
+        ...(assemblyMode === 'mock'
           ? ['MOCK/SYNTHETIC assembly path — not real Google Flow media']
-          : ['REAL assembly path — synthetic placeholders disabled'],
+          : ['REAL assembly path — synthetic placeholders disabled']),
+        ...(project.captions_on_video
+          ? ['Captions enabled — burning screenplay text_overlay onto final MP4']
+          : []),
+      ],
       error: null,
       completedAt: null,
     }),
@@ -115,6 +124,10 @@ export async function assembleProjectForUser(
 
   const root = await mkdtemp(join(tmpdir(), 'asf-web-assemble-'));
   try {
+    const screenplayByNumber = new Map(
+      snapshot.screenplay.scenes.map((scene) => [scene.scene_number, scene]),
+    );
+    const burnCaptions = Boolean(project.captions_on_video);
     const sceneInputs = [];
     for (const scene of completed.sort((a, b) => a.sceneNumber - b.sceneNumber)) {
       const localPath = join(root, `scene-${scene.sceneNumber}.src`);
@@ -128,11 +141,13 @@ export async function assembleProjectForUser(
         );
       }
       await writeFile(localPath, object.body);
+      const screenplayScene = screenplayByNumber.get(scene.sceneNumber);
       sceneInputs.push({
         sceneNumber: scene.sceneNumber,
         path: localPath,
         durationSeconds:
           scene.durationSeconds || BUSINESS_DEFAULTS.defaultGenerationDurationSeconds,
+        captionText: burnCaptions ? screenplayScene?.text_overlay?.trim() || '' : '',
       });
     }
 
@@ -152,6 +167,7 @@ export async function assembleProjectForUser(
       workDir: join(root, 'work'),
       outputPath,
       allowSyntheticPlaceholders,
+      burnCaptions,
       maxSeconds: BUSINESS_DEFAULTS.finalVideoMaxSeconds,
       width: BUSINESS_DEFAULTS.finalVideoTargetWidth,
       height: BUSINESS_DEFAULTS.finalVideoTargetHeight,
@@ -218,6 +234,11 @@ export async function assembleProjectForUser(
           ...(assemblyMode === 'mock'
             ? ['MOCK/SYNTHETIC output — not real AI-generated Flow video']
             : ['REAL Flow import assembly']),
+          ...(assembled.burnedCaptions
+            ? ['Burned on-screen captions from screenplay text_overlay']
+            : project.captions_on_video
+              ? ['Captions enabled but no non-empty text_overlay cues were available']
+              : []),
           ...quality.notes,
         ],
         error: null,

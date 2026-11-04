@@ -15,6 +15,8 @@ export type PromptProjectContext = {
   existing_story?: string;
   additional_instructions?: string;
   character_reference_notes?: string;
+  /** When true, every scene must include a burnable on-screen caption in text_overlay. */
+  captions_on_video?: boolean;
   characters?: Array<{
     name: string;
     description: string;
@@ -32,6 +34,7 @@ export type PromptProjectContext = {
  * Does not call any ChatGPT API.
  */
 export function buildChatGptProductionPrompt(project: PromptProjectContext): string {
+  const captionsOnVideo = Boolean(project.captions_on_video);
   const characterBlock =
     project.characters && project.characters.length > 0
       ? project.characters
@@ -41,6 +44,16 @@ export function buildChatGptProductionPrompt(project: PromptProjectContext): str
           )
           .join('\n')
       : project.character_reference_notes?.trim() || 'Invent consistent characters as needed.';
+
+  const captionConstraint = captionsOnVideo
+    ? `- Captions are REQUIRED: every scene MUST include a non-empty "text_overlay" short caption (about 3–8 words) suitable for burning onto the final vertical video
+- Captions must be readable on mobile, punchy, and scene-specific — never leave text_overlay empty
+- Prefer on-screen caption wording over repeating long narration verbatim`
+    : `- Include text overlay recommendations (optional per scene; do not force captions everywhere)`;
+
+  const captionShapeNote = captionsOnVideo
+    ? `      "text_overlay": string (REQUIRED non-empty caption for this scene),`
+    : `      "text_overlay": string,`;
 
   return `You are a senior short-form video showrunner and Google Flow prompt engineer.
 
@@ -52,6 +65,7 @@ PROJECT
 - Visual style: ${project.visual_style}
 - Language: ${project.language}
 - Target audience: ${project.target_audience || 'general'}
+- Burn captions on final video: ${captionsOnVideo ? 'YES' : 'no'}
 
 CREATIVE BRIEF
 - Idea: ${project.idea}
@@ -70,7 +84,7 @@ HARD CONSTRAINTS
 - Each scene should be suitable for about ${BUSINESS_DEFAULTS.defaultGenerationDurationSeconds} seconds of generation
 - Include dialogue and/or narration where useful
 - Include scene-specific Google Flow video prompts
-- Include text overlay recommendations (optional per scene; do not force captions everywhere)
+${captionConstraint}
 - Include transition recommendations
 - Include suggested publishing title and description
 - Every identifiable character (including animals when continuity matters) MUST appear in the characters array with a stable character_id
@@ -123,7 +137,7 @@ JSON SHAPE
       "character_ids": ["stable-slug-id"],
       "narration": string,
       "dialogue": string,
-      "text_overlay": string,
+${captionShapeNote}
       "transition_out": string,
       "audio_direction": string,
       "camera_direction": string,
@@ -140,5 +154,9 @@ JSON SHAPE
 }
 
 Scenes array MUST contain exactly ${BUSINESS_DEFAULTS.sceneCount} objects with scene_number values 1 through ${BUSINESS_DEFAULTS.sceneCount} in order.
-Every character_id listed in a scene MUST exist in the characters array.`;
+Every character_id listed in a scene MUST exist in the characters array.${
+    captionsOnVideo
+      ? `\nEvery scene's text_overlay MUST be a non-empty caption string that will be burned onto the final video.`
+      : ''
+  }`;
 }

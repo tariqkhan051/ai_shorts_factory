@@ -15,6 +15,10 @@ export type {
   AssembleProjectInput,
   AssembleProjectResult,
 } from './assemble.js';
+export type {
+  SceneCaptionCue,
+  TimedCaptionCue,
+} from './captions.js';
 export type { SynthesizeClipInput } from './synthesize.js';
 export type { CommandResult } from './run-command.js';
 export type {
@@ -29,6 +33,14 @@ export { probeMedia, isReadableVideo, assertDecodableVideo } from './probe.js';
 export { evaluateQualityGates } from './quality.js';
 export { synthesizeColorClip, mockSceneColor, MOCK_SCENE_COLORS } from './synthesize.js';
 export { assembleProject } from './assemble.js';
+export {
+  buildSubtitlesFilter,
+  buildTimedCaptionCues,
+  DEFAULT_CAPTION_FORCE_STYLE,
+  escapeSubtitlesFilterPath,
+  formatSrtTimestamp,
+  renderSrt,
+} from './captions.js';
 export {
   DEFAULT_FLOW_IMPORT_MEDIA_CONTRACT,
   readMediaContractFromEnv,

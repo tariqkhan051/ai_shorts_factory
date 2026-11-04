@@ -22,6 +22,8 @@ export type ProjectRecord = {
   target_audience: string;
   workflow_state: WorkflowState;
   notes: string;
+  /** Burn on-screen captions from screenplay text_overlay during final assembly. */
+  captions_on_video: boolean;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;

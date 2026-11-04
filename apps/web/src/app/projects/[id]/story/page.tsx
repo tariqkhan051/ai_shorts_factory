@@ -53,6 +53,7 @@ export default async function StoryStudioPage({ params }: PageProps) {
     existing_story: project.input?.existing_story,
     additional_instructions: project.input?.additional_instructions,
     character_reference_notes: project.input?.character_reference_notes,
+    captions_on_video: project.captions_on_video,
     characters: linkedCharacters.map((character) => ({
       name: character.name,
       description: character.description,
@@ -89,11 +90,15 @@ export default async function StoryStudioPage({ params }: PageProps) {
         <p className="max-w-3xl text-muted">
           Generate a ChatGPT production prompt, paste the JSON response, review characters and
           references, then approve. No ChatGPT API is used.
+          {project.captions_on_video
+            ? ' Captions are enabled for this project — the prompt requires a text_overlay on every scene.'
+            : ''}
         </p>
         <p className="font-mono text-xs uppercase tracking-wide text-accent">
           {project.workflow_state}
           {story?.approved_at ? ' · approved' : ''}
           {story?.characters_reviewed_at ? ' · characters reviewed' : ''}
+          {project.captions_on_video ? ' · captions on' : ''}
         </p>
       </div>
 

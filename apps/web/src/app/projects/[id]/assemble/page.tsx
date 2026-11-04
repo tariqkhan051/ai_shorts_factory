@@ -105,9 +105,13 @@ export default async function AssemblePage({ params }: PageProps) {
           {BUSINESS_DEFAULTS.finalVideoMaxSeconds}s. Real assembly requires five distinct
           REAL_GENERATED imports (no mock mix, no synthetic placeholders). Mock assembly remains
           available for COMPLETED mock scenes and is labeled synthetic.
+          {project.captions_on_video
+            ? ' On-screen captions from each scene’s text overlay will be burned into the final video.'
+            : ''}
         </p>
         <p className="font-mono text-xs uppercase tracking-wide text-accent">
           {project.workflow_state}
+          {project.captions_on_video ? ' · captions on' : ''}
         </p>
       </div>
 

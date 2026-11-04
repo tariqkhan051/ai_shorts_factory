@@ -101,6 +101,23 @@ export function ProjectForm(props: ProjectFormProps) {
         />
       </Field>
 
+      <label className="flex items-start gap-3 rounded-md border border-border px-3 py-3">
+        <input
+          type="checkbox"
+          name="captions_on_video"
+          value="true"
+          defaultChecked={project?.captions_on_video ?? false}
+          className="mt-1"
+        />
+        <span className="space-y-1">
+          <span className="block text-sm text-foreground">Add captions on the final video</span>
+          <span className="block text-xs text-muted">
+            ChatGPT will include a short on-screen caption for every scene, and assembly burns them
+            into the finished MP4.
+          </span>
+        </span>
+      </label>
+
       <Field label="Idea / general story" htmlFor="idea">
         <textarea
           id="idea"

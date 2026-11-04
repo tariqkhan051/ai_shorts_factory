@@ -2,6 +2,12 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { BUSINESS_DEFAULTS } from '@ai-shorts-factory/shared-types';
+import {
+  buildSubtitlesFilter,
+  buildTimedCaptionCues,
+  renderSrt,
+  type SceneCaptionCue,
+} from './captions.js';
 import { isReadableVideo, probeMedia } from './probe.js';
 import { evaluateQualityGates, type QualityGateResult } from './quality.js';
 import { assertMediaToolsAvailable, resolveMediaToolPaths, type MediaToolPaths } from './paths.js';
@@ -13,6 +19,8 @@ export type AssemblySceneInput = {
   path: string;
   durationSeconds: number;
   sceneNumber: number;
+  /** Optional on-screen caption burned during final export when burnCaptions is true. */
+  captionText?: string;
 };
 
 export type AssembleProjectInput = {
@@ -25,6 +33,8 @@ export type AssembleProjectInput = {
   fps?: number;
   /** When scene files are not real videos, synthesize color clips (mock/dev). */
   allowSyntheticPlaceholders?: boolean;
+  /** Burn scene captionText values into the final MP4 via SRT + subtitles filter. */
+  burnCaptions?: boolean;
   paths?: MediaToolPaths;
 };
 
@@ -33,6 +43,7 @@ export type AssembleProjectResult = {
   normalizedScenePaths: string[];
   usedSyntheticPlaceholders: boolean;
   upscaledFromLowerResolution: boolean;
+  burnedCaptions: boolean;
   probe: Awaited<ReturnType<typeof probeMedia>>;
   quality: QualityGateResult;
 };
@@ -195,26 +206,28 @@ export async function assembleProject(input: AssembleProjectInput): Promise<Asse
     }
   }
 
+  const captionCues: SceneCaptionCue[] = sortedScenes.map((scene) => ({
+    sceneNumber: scene.sceneNumber,
+    text: scene.captionText ?? '',
+    durationSeconds: scene.durationSeconds,
+  }));
+  const timedCaptions = input.burnCaptions ? buildTimedCaptionCues(captionCues) : [];
+  const burnedCaptions = timedCaptions.length > 0;
+
   // Hard cap under business max (59s). Prefer -t trim over dropping scenes.
-  const finalResult = await runCommand(paths.ffmpeg, [
-    '-y',
-    '-i',
-    concatPath,
-    '-t',
-    String(maxSeconds),
-    '-c',
-    'copy',
-    '-movflags',
-    '+faststart',
-    input.outputPath,
-  ]);
-  if (finalResult.code !== 0) {
-    const reencodeFinal = await runCommand(paths.ffmpeg, [
+  // Caption burn-in requires a re-encode with the subtitles filter.
+  if (burnedCaptions) {
+    const srtPath = join(input.workDir, 'captions.srt');
+    await writeFile(srtPath, renderSrt(timedCaptions), 'utf8');
+    const vf = buildSubtitlesFilter(srtPath);
+    const captioned = await runCommand(paths.ffmpeg, [
       '-y',
       '-i',
       concatPath,
       '-t',
       String(maxSeconds),
+      '-vf',
+      vf,
       '-c:v',
       'libx264',
       '-pix_fmt',
@@ -225,8 +238,44 @@ export async function assembleProject(input: AssembleProjectInput): Promise<Asse
       '+faststart',
       input.outputPath,
     ]);
-    if (reencodeFinal.code !== 0) {
-      throw new Error(`Final trim/export failed: ${reencodeFinal.stderr}`);
+    if (captioned.code !== 0) {
+      throw new Error(
+        `Final caption burn-in failed (is FFmpeg built with libass?): ${captioned.stderr}`,
+      );
+    }
+  } else {
+    const finalResult = await runCommand(paths.ffmpeg, [
+      '-y',
+      '-i',
+      concatPath,
+      '-t',
+      String(maxSeconds),
+      '-c',
+      'copy',
+      '-movflags',
+      '+faststart',
+      input.outputPath,
+    ]);
+    if (finalResult.code !== 0) {
+      const reencodeFinal = await runCommand(paths.ffmpeg, [
+        '-y',
+        '-i',
+        concatPath,
+        '-t',
+        String(maxSeconds),
+        '-c:v',
+        'libx264',
+        '-pix_fmt',
+        'yuv420p',
+        '-c:a',
+        'aac',
+        '-movflags',
+        '+faststart',
+        input.outputPath,
+      ]);
+      if (reencodeFinal.code !== 0) {
+        throw new Error(`Final trim/export failed: ${reencodeFinal.stderr}`);
+      }
     }
   }
 
@@ -249,6 +298,7 @@ export async function assembleProject(input: AssembleProjectInput): Promise<Asse
     normalizedScenePaths: normalized,
     usedSyntheticPlaceholders: usedSynthetic,
     upscaledFromLowerResolution: upscaled || usedSynthetic,
+    burnedCaptions,
     probe,
     quality,
   };

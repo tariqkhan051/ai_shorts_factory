@@ -35,6 +35,7 @@ export async function createProjectAction(
       language: formString(formData, 'language') || 'en',
       target_audience: formString(formData, 'target_audience'),
       notes: formString(formData, 'notes'),
+      captions_on_video: formData.get('captions_on_video') === 'true',
       input: {
         idea: formString(formData, 'idea'),
         existing_story: formString(formData, 'existing_story'),
@@ -78,6 +79,7 @@ export async function updateProjectAction(
       language: formString(formData, 'language') || undefined,
       target_audience: formString(formData, 'target_audience'),
       notes: formString(formData, 'notes'),
+      captions_on_video: formData.get('captions_on_video') === 'true',
       input: {
         idea: formString(formData, 'idea'),
         existing_story: formString(formData, 'existing_story'),

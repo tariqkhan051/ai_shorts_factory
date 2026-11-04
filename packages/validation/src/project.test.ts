@@ -14,6 +14,22 @@ describe('createProjectSchema', () => {
       },
     });
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.captions_on_video).toBe(false);
+    }
+  });
+
+  it('accepts captions_on_video true', () => {
+    const result = createProjectSchema.safeParse({
+      name: 'Captioned Courier',
+      category: 'cinematic',
+      captions_on_video: true,
+      input: { idea: 'A courier delivers a whispering package through rain.' },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.captions_on_video).toBe(true);
+    }
   });
 
   it('rejects empty idea', () => {

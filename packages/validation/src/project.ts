@@ -15,6 +15,8 @@ export const createProjectSchema = z.object({
   language: z.string().trim().min(2).max(32).default('en'),
   target_audience: z.string().trim().max(240).default(''),
   notes: z.string().trim().max(4000).default(''),
+  /** When true, ChatGPT must supply per-scene captions and assembly burns them in. */
+  captions_on_video: z.boolean().default(false),
   input: projectInputSchema,
 });
 
@@ -25,6 +27,7 @@ export const updateProjectSchema = z.object({
   language: z.string().trim().min(2).max(32).optional(),
   target_audience: z.string().trim().max(240).optional(),
   notes: z.string().trim().max(4000).optional(),
+  captions_on_video: z.boolean().optional(),
   input: projectInputSchema.partial().optional(),
 });
 

@@ -32,6 +32,7 @@ function mapRow(row: ProjectRow): ProjectRecord {
     target_audience: row.target_audience,
     workflow_state: row.workflow_state,
     notes: row.notes,
+    captions_on_video: Boolean(row.captions_on_video),
     created_at: row.created_at,
     updated_at: row.updated_at,
     deleted_at: row.deleted_at,
@@ -88,6 +89,7 @@ export class SupabaseProjectRepository implements ProjectRepository {
         language: input.language ?? 'en',
         target_audience: input.target_audience ?? '',
         notes: input.notes ?? '',
+        captions_on_video: input.captions_on_video ?? false,
         workflow_state: 'IDEA_SUBMITTED',
       })
       .select('*')
@@ -146,6 +148,9 @@ export class SupabaseProjectRepository implements ProjectRepository {
     if (input.language !== undefined) projectPatch.language = input.language;
     if (input.target_audience !== undefined) projectPatch.target_audience = input.target_audience;
     if (input.notes !== undefined) projectPatch.notes = input.notes;
+    if (input.captions_on_video !== undefined) {
+      projectPatch.captions_on_video = input.captions_on_video;
+    }
 
     if (Object.keys(projectPatch).length > 0) {
       const { error } = await this.client

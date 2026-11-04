@@ -26,6 +26,7 @@ describe('MemoryProjectRepository', () => {
     });
 
     expect(created.workflow_state).toBe('IDEA_SUBMITTED');
+    expect(created.captions_on_video).toBe(false);
     expect(created.input?.idea).toBe('Rainy neon chase');
 
     const listed = await repo.listByUser(userId);
@@ -33,9 +34,11 @@ describe('MemoryProjectRepository', () => {
 
     const updated = await repo.update(userId, created.id, {
       name: 'Echoes Revised',
+      captions_on_video: true,
       input: { idea: 'Updated idea' },
     });
     expect(updated.name).toBe('Echoes Revised');
+    expect(updated.captions_on_video).toBe(true);
     expect(updated.input?.idea).toBe('Updated idea');
 
     await repo.softDelete(userId, created.id);

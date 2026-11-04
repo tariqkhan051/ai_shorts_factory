@@ -18,6 +18,23 @@ describe('buildChatGptProductionPrompt', () => {
     expect(prompt).toMatch(/Return ONLY valid JSON/i);
     expect(prompt).toMatch(/character_id/);
     expect(prompt).toMatch(/A shy robot learns to paint/);
+    expect(prompt).toMatch(/do not force captions everywhere/i);
+  });
+
+  it('requires per-scene text_overlay captions when captions_on_video is enabled', () => {
+    const prompt = buildChatGptProductionPrompt({
+      name: 'Captioned',
+      category: 'cinematic',
+      visual_style: 'realistic_cinematic',
+      language: 'en',
+      target_audience: 'adults',
+      idea: 'A courier delivers a sealed letter',
+      captions_on_video: true,
+    });
+    expect(prompt).toMatch(/Burn captions on final video: YES/);
+    expect(prompt).toMatch(/Captions are REQUIRED/i);
+    expect(prompt).toMatch(/text_overlay.*REQUIRED/i);
+    expect(prompt).not.toMatch(/do not force captions everywhere/i);
   });
 });
 

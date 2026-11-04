@@ -122,7 +122,7 @@ export function ScreenplayEditor({
                   className="field-input"
                   value={scene.text_overlay}
                   onChange={(e) => updateScene(index, { text_overlay: e.target.value })}
-                  placeholder="Text overlay"
+                  placeholder="On-screen caption / text overlay"
                 />
                 <input
                   className="field-input"

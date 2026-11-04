@@ -59,6 +59,7 @@ export class MemoryProjectRepository implements ProjectRepository {
       target_audience: input.target_audience ?? '',
       workflow_state: 'IDEA_SUBMITTED',
       notes: input.notes ?? '',
+      captions_on_video: input.captions_on_video ?? false,
       created_at: timestamp,
       updated_at: timestamp,
       deleted_at: null,
@@ -101,6 +102,7 @@ export class MemoryProjectRepository implements ProjectRepository {
       language: input.language ?? existing.language,
       target_audience: input.target_audience ?? existing.target_audience,
       notes: input.notes ?? existing.notes,
+      captions_on_video: input.captions_on_video ?? existing.captions_on_video,
       updated_at: timestamp,
       input: nextInput,
     };
@@ -172,7 +174,13 @@ export class MemoryProjectRepository implements ProjectRepository {
   importAll(records: ProjectRecord[]): void {
     this.projects.clear();
     for (const record of records) {
-      this.projects.set(record.id, structuredClone(record));
+      this.projects.set(
+        record.id,
+        structuredClone({
+          ...record,
+          captions_on_video: record.captions_on_video ?? false,
+        }),
+      );
     }
   }
 }
