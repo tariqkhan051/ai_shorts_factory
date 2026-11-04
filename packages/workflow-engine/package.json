@@ -16,11 +16,15 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@ai-shorts-factory/shared-types": "workspace:*"
+    "@ai-shorts-factory/credit-manager": "workspace:*",
+    "@ai-shorts-factory/flow-adapter": "workspace:*",
+    "@ai-shorts-factory/shared-types": "workspace:*",
+    "@ai-shorts-factory/storage": "workspace:*",
+    "@ai-shorts-factory/validation": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

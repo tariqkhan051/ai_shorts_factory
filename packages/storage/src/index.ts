@@ -7,12 +7,7 @@ export const PACKAGE_NAME = '@ai-shorts-factory/storage' as const;
 export const PACKAGE_PHASE = 1 as const;
 export const PACKAGE_STATUS = 'active' as const;
 
-export type {
-  StoredObject,
-  PutObjectInput,
-  SignedUrlOptions,
-  ObjectStorage,
-} from './types.js';
+export type { StoredObject, PutObjectInput, SignedUrlOptions, ObjectStorage } from './types.js';
 export { assertSafeStorageKey, buildReferenceAssetKey } from './types.js';
 export { MemoryObjectStorage } from './memory-storage.js';
 export { R2ObjectStorage, isR2Configured, type R2StorageConfig } from './r2-storage.js';

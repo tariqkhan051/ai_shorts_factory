@@ -42,7 +42,8 @@ export default async function ProjectsPage() {
                 <div>
                   <p className="font-medium text-foreground">{project.name}</p>
                   <p className="mt-1 text-sm text-muted">
-                    {project.category.replaceAll('_', ' ')} · {project.visual_style.replaceAll('_', ' ')}
+                    {project.category.replaceAll('_', ' ')} ·{' '}
+                    {project.visual_style.replaceAll('_', ' ')}
                   </p>
                 </div>
                 <div className="text-left sm:text-right">

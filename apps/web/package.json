@@ -12,10 +12,14 @@
     "clean": "rimraf .next"
   },
   "dependencies": {
+    "@ai-shorts-factory/chatgpt-import": "workspace:*",
+    "@ai-shorts-factory/credit-manager": "workspace:*",
     "@ai-shorts-factory/database": "workspace:*",
+    "@ai-shorts-factory/flow-adapter": "workspace:*",
     "@ai-shorts-factory/shared-types": "workspace:*",
     "@ai-shorts-factory/storage": "workspace:*",
     "@ai-shorts-factory/validation": "workspace:*",
+    "@ai-shorts-factory/workflow-engine": "workspace:*",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.1",
     "next": "^15.5.7",

@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { WorkflowState } from '@ai-shorts-factory/shared-types';
+import { assertTransition } from './workflow-transitions.js';
 import type {
   CreateProjectInput,
   DashboardStats,
@@ -121,7 +123,10 @@ export class SupabaseProjectRepository implements ProjectRepository {
       metadata: { name: project.name, category: project.category },
     });
 
-    return mapRow({ ...(project as ProjectRow), project_inputs: projectInput as ProjectInputRecord });
+    return mapRow({
+      ...(project as ProjectRow),
+      project_inputs: projectInput as ProjectInputRecord,
+    });
   }
 
   async update(
@@ -232,5 +237,41 @@ export class SupabaseProjectRepository implements ProjectRepository {
       failedJobs: projects.filter((p) => failed.has(p.workflow_state)).length,
       needsIntervention: projects.filter((p) => intervention.has(p.workflow_state)).length,
     };
+  }
+
+  async setWorkflowState(
+    userId: string,
+    projectId: string,
+    state: WorkflowState,
+  ): Promise<ProjectRecord> {
+    const existing = await this.getById(userId, projectId);
+    if (!existing) {
+      throw new Error('Project not found');
+    }
+    assertTransition(existing.workflow_state, state);
+
+    const { error } = await this.client
+      .from('projects')
+      .update({ workflow_state: state })
+      .eq('id', projectId)
+      .eq('user_id', userId);
+    if (error) {
+      throw new Error(`Failed to update workflow state: ${error.message}`);
+    }
+
+    await this.client.from('audit_logs').insert({
+      user_id: userId,
+      project_id: projectId,
+      action: 'project.workflow_transition',
+      entity_type: 'project',
+      entity_id: projectId,
+      metadata: { from: existing.workflow_state, to: state },
+    });
+
+    const updated = await this.getById(userId, projectId);
+    if (!updated) {
+      throw new Error('Project disappeared after workflow update');
+    }
+    return updated;
   }
 }

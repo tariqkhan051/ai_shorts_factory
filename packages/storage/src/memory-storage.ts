@@ -1,10 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import type {
-  ObjectStorage,
-  PutObjectInput,
-  SignedUrlOptions,
-  StoredObject,
-} from './types.js';
+import type { ObjectStorage, PutObjectInput, SignedUrlOptions, StoredObject } from './types.js';
 import { assertSafeStorageKey } from './types.js';
 
 type MemoryObject = {
@@ -20,7 +15,10 @@ type MemoryObject = {
 export class MemoryObjectStorage implements ObjectStorage {
   readonly name = 'memory';
   private readonly objects = new Map<string, MemoryObject>();
-  private readonly tokens = new Map<string, { key: string; expiresAt: number; mode: 'download' | 'upload' }>();
+  private readonly tokens = new Map<
+    string,
+    { key: string; expiresAt: number; mode: 'download' | 'upload' }
+  >();
   private readonly defaultTtlSeconds: number;
 
   constructor(options?: { defaultTtlSeconds?: number }) {
@@ -30,8 +28,7 @@ export class MemoryObjectStorage implements ObjectStorage {
   async putObject(input: PutObjectInput): Promise<StoredObject> {
     assertSafeStorageKey(input.key);
     const body = Buffer.from(input.body);
-    const checksumSha256 =
-      input.checksumSha256 ?? createHash('sha256').update(body).digest('hex');
+    const checksumSha256 = input.checksumSha256 ?? createHash('sha256').update(body).digest('hex');
     this.objects.set(input.key, {
       body,
       contentType: input.contentType,

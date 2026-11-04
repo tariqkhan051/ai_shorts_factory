@@ -6,12 +6,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createHash } from 'node:crypto';
-import type {
-  ObjectStorage,
-  PutObjectInput,
-  SignedUrlOptions,
-  StoredObject,
-} from './types.js';
+import type { ObjectStorage, PutObjectInput, SignedUrlOptions, StoredObject } from './types.js';
 import { assertSafeStorageKey } from './types.js';
 
 export type R2StorageConfig = {
@@ -67,8 +62,7 @@ export class R2ObjectStorage implements ObjectStorage {
   async putObject(input: PutObjectInput): Promise<StoredObject> {
     assertSafeStorageKey(input.key);
     const body = Buffer.from(input.body);
-    const checksumSha256 =
-      input.checksumSha256 ?? createHash('sha256').update(body).digest('hex');
+    const checksumSha256 = input.checksumSha256 ?? createHash('sha256').update(body).digest('hex');
 
     await this.client.send(
       new PutObjectCommand({
@@ -147,9 +141,6 @@ export class R2ObjectStorage implements ObjectStorage {
 
 export function isR2Configured(env: NodeJS.ProcessEnv = process.env): boolean {
   return Boolean(
-    env.R2_ACCOUNT_ID &&
-      env.R2_ACCESS_KEY_ID &&
-      env.R2_SECRET_ACCESS_KEY &&
-      env.R2_BUCKET_NAME,
+    env.R2_ACCOUNT_ID && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY && env.R2_BUCKET_NAME,
   );
 }

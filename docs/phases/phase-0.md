@@ -45,14 +45,14 @@ pnpm dev:web
 
 ## Verification results (2026-11-04)
 
-| Command | Result |
-|---------|--------|
-| `pnpm install` | Pass (after SWC download retry) |
-| `pnpm test` | Pass (8 unit tests + scaffolds) |
-| `pnpm typecheck` | Pass |
-| `pnpm lint` | Pass |
-| `pnpm build` | Pass (Next.js 15.5.29 + packages) |
-| `pnpm format:check` | Pass |
+| Command             | Result                            |
+| ------------------- | --------------------------------- |
+| `pnpm install`      | Pass (after SWC download retry)   |
+| `pnpm test`         | Pass (8 unit tests + scaffolds)   |
+| `pnpm typecheck`    | Pass                              |
+| `pnpm lint`         | Pass                              |
+| `pnpm build`        | Pass (Next.js 15.5.29 + packages) |
+| `pnpm format:check` | Pass                              |
 
 ## Next phase entry criteria
 

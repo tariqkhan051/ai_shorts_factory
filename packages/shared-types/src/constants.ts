@@ -15,6 +15,6 @@ export const BUSINESS_DEFAULTS = {
 } as const;
 
 export const PHASE = {
-  current: 1,
-  name: 'Database and Project Management',
+  current: 3,
+  name: 'Credit Engine and Mock Flow',
 } as const;

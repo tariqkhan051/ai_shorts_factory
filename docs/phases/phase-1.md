@@ -10,15 +10,15 @@
 
 ## Delivered
 
-| Item | Location |
-|------|----------|
-| SQL migration + RLS | `packages/database/migrations/00001_init.sql` |
-| Project repository (memory + Supabase) | `packages/database` |
-| Project Zod schemas | `packages/validation/src/project.ts` |
-| Object storage (memory + R2) | `packages/storage` |
-| Auth pages / session middleware | `apps/web/src/app/login`, `signup`, `middleware.ts` |
-| Project list/create/detail | `apps/web/src/app/projects` |
-| Dashboard stats | `apps/web/src/app/page.tsx` |
+| Item                                   | Location                                            |
+| -------------------------------------- | --------------------------------------------------- |
+| SQL migration + RLS                    | `packages/database/migrations/00001_init.sql`       |
+| Project repository (memory + Supabase) | `packages/database`                                 |
+| Project Zod schemas                    | `packages/validation/src/project.ts`                |
+| Object storage (memory + R2)           | `packages/storage`                                  |
+| Auth pages / session middleware        | `apps/web/src/app/login`, `signup`, `middleware.ts` |
+| Project list/create/detail             | `apps/web/src/app/projects`                         |
+| Dashboard stats                        | `apps/web/src/app/page.tsx`                         |
 
 ## Local usage (no cloud required)
 
@@ -77,6 +77,16 @@ Without R2, the memory storage provider is used. Uploads UI expands in later pha
 - Credit ledger transactions (Phase 3)
 - Google Flow automation (Phase 4)
 - FFmpeg assembly (Phase 5)
+
+## Verification results
+
+| Command             | Result                                            |
+| ------------------- | ------------------------------------------------- |
+| `pnpm test`         | Pass (project/repo/storage/screenplay unit tests) |
+| `pnpm typecheck`    | Pass                                              |
+| `pnpm lint`         | Pass                                              |
+| `pnpm build`        | Pass                                              |
+| `pnpm format:check` | Pass                                              |
 
 ## Exact next step
 

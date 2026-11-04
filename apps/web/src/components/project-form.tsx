@@ -3,11 +3,7 @@
 import { useActionState } from 'react';
 import { CONTENT_CATEGORIES, VISUAL_STYLES } from '@ai-shorts-factory/shared-types';
 import type { ProjectRecord } from '@ai-shorts-factory/database';
-import {
-  createProjectAction,
-  updateProjectAction,
-  type ActionState,
-} from '@/app/projects/actions';
+import { createProjectAction, updateProjectAction, type ActionState } from '@/app/projects/actions';
 
 const initialState: ActionState = { ok: false };
 
@@ -34,15 +30,11 @@ const styleLabels: Record<(typeof VISUAL_STYLES)[number], string> = {
   custom: 'Custom',
 };
 
-type ProjectFormProps =
-  | { mode: 'create' }
-  | { mode: 'edit'; project: ProjectRecord };
+type ProjectFormProps = { mode: 'create' } | { mode: 'edit'; project: ProjectRecord };
 
 export function ProjectForm(props: ProjectFormProps) {
   const boundUpdate =
-    props.mode === 'edit'
-      ? updateProjectAction.bind(null, props.project.id)
-      : createProjectAction;
+    props.mode === 'edit' ? updateProjectAction.bind(null, props.project.id) : createProjectAction;
 
   const [state, formAction, pending] = useActionState(boundUpdate, initialState);
   const project = props.mode === 'edit' ? props.project : null;
@@ -164,9 +156,7 @@ export function ProjectForm(props: ProjectFormProps) {
       {(state.message || state.errors?.length) && (
         <div
           className={`rounded-md border px-3 py-2 text-sm ${
-            state.ok
-              ? 'border-success/40 text-success'
-              : 'border-danger/40 text-danger'
+            state.ok ? 'border-success/40 text-success' : 'border-danger/40 text-danger'
           }`}
         >
           <p>{state.message}</p>
@@ -185,11 +175,7 @@ export function ProjectForm(props: ProjectFormProps) {
         disabled={pending}
         className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background transition hover:bg-accent/90 disabled:opacity-60"
       >
-        {pending
-          ? 'Saving…'
-          : props.mode === 'create'
-            ? 'Create project'
-            : 'Save changes'}
+        {pending ? 'Saving…' : props.mode === 'create' ? 'Create project' : 'Save changes'}
       </button>
     </form>
   );

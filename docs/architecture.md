@@ -1,7 +1,7 @@
 # AI Shorts Factory — Architecture
 
-**Phase:** 1 — Database and Project Management  
-**Status:** Projects CRUD + auth + storage abstraction online  
+**Phase:** 3 — Credit Engine and Mock Flow  
+**Status:** Credits + mock sequential generation + job leases online  
 **Last updated:** 2026-11-04
 
 ## 1. Architecture assessment

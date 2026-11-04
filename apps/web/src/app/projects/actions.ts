@@ -103,21 +103,11 @@ export async function updateProjectAction(
   }
 }
 
-export async function deleteProjectAction(projectId: string): Promise<ActionState> {
-  try {
-    const user = await requireUser();
-    const repo = await getProjectRepository();
-    await repo.softDelete(user.id, projectId);
-    revalidatePath('/');
-    revalidatePath('/projects');
-    redirect('/projects');
-  } catch (error) {
-    if (error && typeof error === 'object' && 'digest' in error) {
-      throw error;
-    }
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : 'Failed to delete project',
-    };
-  }
+export async function deleteProjectAction(projectId: string): Promise<void> {
+  const user = await requireUser();
+  const repo = await getProjectRepository();
+  await repo.softDelete(user.id, projectId);
+  revalidatePath('/');
+  revalidatePath('/projects');
+  redirect('/projects');
 }

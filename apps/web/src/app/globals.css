@@ -38,7 +38,7 @@ body {
   }
 
   .field-input:focus {
-    @apply border-accent/60 ring-1 ring-accent/40;
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
   }
 }
-

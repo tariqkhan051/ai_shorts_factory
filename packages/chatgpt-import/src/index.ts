@@ -1,13 +1,16 @@
 /**
  * Package: @ai-shorts-factory/chatgpt-import
- * ChatGPT prompt generation and JSON screenplay import
- *
- * Phase 0: scaffold only. Real implementation lands in later phases.
- * Do not treat this package as production-ready.
+ * ChatGPT prompt generation and JSON screenplay import (no paid API).
  */
+
 export const PACKAGE_NAME = '@ai-shorts-factory/chatgpt-import' as const;
-export const PACKAGE_PHASE = 0 as const;
-export const PACKAGE_STATUS = 'scaffold' as const;
+export const PACKAGE_PHASE = 2 as const;
+export const PACKAGE_STATUS = 'active' as const;
+
+export { buildChatGptProductionPrompt, type PromptProjectContext } from './prompt.js';
+export { normalizeImportedScreenplay, parseImportedJsonText } from './normalize.js';
+export { importScreenplayFromText, type ScreenplayImportResult } from './import-screenplay.js';
+export { createSampleScreenplay } from './sample-screenplay.js';
 
 export function getPackageMeta() {
   return {

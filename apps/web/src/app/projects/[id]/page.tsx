@@ -41,6 +41,40 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         </form>
       </div>
 
+      <section className="rounded-lg border border-accent/30 bg-background-elevated/50 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-medium">Story Studio</h2>
+            <p className="mt-1 text-sm text-muted">
+              ChatGPT prompt, JSON import, five-scene editing, characters, and approval.
+            </p>
+          </div>
+          <Link
+            href={`/projects/${project.id}/story`}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background hover:bg-accent/90"
+          >
+            Open Story Studio
+          </Link>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-border bg-background-elevated/50 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-medium">Scene generation</h2>
+            <p className="mt-1 text-sm text-muted">
+              Mock Flow sequential generation, credit ledger, and per-scene progress. No live Flow.
+            </p>
+          </div>
+          <Link
+            href={`/projects/${project.id}/generate`}
+            className="rounded-md border border-border px-4 py-2 text-sm hover:bg-background"
+          >
+            Open generation
+          </Link>
+        </div>
+      </section>
+
       <section className="rounded-lg border border-border bg-background-elevated/50 p-5">
         <h2 className="mb-4 text-lg font-medium">Idea & settings</h2>
         <ProjectForm mode="edit" project={project} />

@@ -2,9 +2,9 @@
 
 Cloud-based short video production platform: idea → ChatGPT screenplay import → sequential scene generation → FFmpeg assembly → reviewed MP4 download.
 
-**Current phase: 1 — Database and Project Management**
+**Current phase: 3 — Credit Engine and Mock Flow**
 
-This is a real application under phased construction. Live Google Flow automation and paid APIs are **not** enabled.
+This is a real application under phased construction. Live Google Flow automation and paid APIs are **not** enabled. Story writing uses a copyable ChatGPT website prompt + JSON import. Scene generation uses the mock provider and a 50-credit daily ledger.
 
 ## Stack
 
@@ -63,12 +63,11 @@ pnpm test
 pnpm build
 ```
 
-Workers stay off unless explicitly enabled:
+Workers stay off unless explicitly enabled. Memory queues are process-local; the web **Start mock generation** button processes jobs inline. Smoke the worker loop with:
 
 ```bash
-FLOW_WORKER_ENABLED=true FLOW_PROVIDER=mock pnpm --filter @ai-shorts-factory/flow-worker dev
+FLOW_WORKER_ENABLED=true FLOW_WORKER_SMOKE=true FLOW_PROVIDER=mock pnpm --filter @ai-shorts-factory/flow-worker start
 ```
-
 
 ## Environment
 
@@ -90,18 +89,18 @@ Copy `.env.example`. Never commit secrets. Never expose:
 
 ## Phase roadmap
 
-See [docs/architecture.md](./docs/architecture.md), [docs/phases/phase-0.md](./docs/phases/phase-0.md), and [docs/phases/phase-1.md](./docs/phases/phase-1.md).
+See [docs/architecture.md](./docs/architecture.md) and [docs/phases/](./docs/phases/).
 
-| Phase | Focus                                             |
-| ----- | ------------------------------------------------- |
+| Phase | Focus                                                |
+| ----- | ---------------------------------------------------- |
 | 0     | Monorepo, shell, docs, CI, mock provider contract ✅ |
-| 1     | Database, auth, RLS, projects, storage ✅           |
-| 2     | ChatGPT story studio                              |
-| 3     | Credits + mock sequential generation              |
-| 4     | Verified single-scene Google Flow                 |
-| 5     | FFmpeg assembly                                   |
-| 6     | Realtime dashboard + notifications                |
-| 7     | Hardening + deployment                            |
+| 1     | Database, auth, RLS, projects, storage ✅            |
+| 2     | ChatGPT story studio ✅                              |
+| 3     | Credits + mock sequential generation ✅              |
+| 4     | Verified single-scene Google Flow                    |
+| 5     | FFmpeg assembly                                      |
+| 6     | Realtime dashboard + notifications                   |
+| 7     | Hardening + deployment                               |
 
 ## Safety rules
 

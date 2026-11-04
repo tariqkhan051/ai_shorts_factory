@@ -29,12 +29,24 @@ importers:
 
   apps/flow-worker:
     dependencies:
+      '@ai-shorts-factory/credit-manager':
+        specifier: workspace:*
+        version: link:../../packages/credit-manager
       '@ai-shorts-factory/flow-adapter':
         specifier: workspace:*
         version: link:../../packages/flow-adapter
       '@ai-shorts-factory/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      '@ai-shorts-factory/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
+      '@ai-shorts-factory/validation':
+        specifier: workspace:*
+        version: link:../../packages/validation
+      '@ai-shorts-factory/workflow-engine':
+        specifier: workspace:*
+        version: link:../../packages/workflow-engine
     devDependencies:
       tsx:
         specifier: ^4.19.2
@@ -67,9 +79,18 @@ importers:
 
   apps/web:
     dependencies:
+      '@ai-shorts-factory/chatgpt-import':
+        specifier: workspace:*
+        version: link:../../packages/chatgpt-import
+      '@ai-shorts-factory/credit-manager':
+        specifier: workspace:*
+        version: link:../../packages/credit-manager
       '@ai-shorts-factory/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@ai-shorts-factory/flow-adapter':
+        specifier: workspace:*
+        version: link:../../packages/flow-adapter
       '@ai-shorts-factory/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -79,6 +100,9 @@ importers:
       '@ai-shorts-factory/validation':
         specifier: workspace:*
         version: link:../../packages/validation
+      '@ai-shorts-factory/workflow-engine':
+        specifier: workspace:*
+        version: link:../../packages/workflow-engine
       '@supabase/ssr':
         specifier: ^0.5.2
         version: 0.5.2(@supabase/supabase-js@2.118.0)
@@ -134,6 +158,9 @@ importers:
       '@ai-shorts-factory/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+      '@ai-shorts-factory/validation':
+        specifier: workspace:*
+        version: link:../validation
     devDependencies:
       typescript:
         specifier: ^5.7.2
@@ -167,6 +194,9 @@ importers:
         specifier: ^2.49.1
         version: 2.118.0
     devDependencies:
+      '@ai-shorts-factory/chatgpt-import':
+        specifier: workspace:*
+        version: link:../chatgpt-import
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
@@ -259,9 +289,21 @@ importers:
 
   packages/workflow-engine:
     dependencies:
+      '@ai-shorts-factory/credit-manager':
+        specifier: workspace:*
+        version: link:../credit-manager
+      '@ai-shorts-factory/flow-adapter':
+        specifier: workspace:*
+        version: link:../flow-adapter
       '@ai-shorts-factory/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+      '@ai-shorts-factory/storage':
+        specifier: workspace:*
+        version: link:../storage
+      '@ai-shorts-factory/validation':
+        specifier: workspace:*
+        version: link:../validation
     devDependencies:
       typescript:
         specifier: ^5.7.2

@@ -1,0 +1,176 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import {
+  createSampleScreenplay,
+  importScreenplayFromText,
+} from '@ai-shorts-factory/chatgpt-import';
+import { parseScreenplayV1 } from '@ai-shorts-factory/validation';
+import { ZodError } from 'zod';
+import { requireUser } from '@/lib/auth';
+import {
+  getCharacterRepository,
+  getProjectRepository,
+  getStoryRepository,
+} from '@/lib/projects/repository';
+
+export type StoryActionState = {
+  ok: boolean;
+  message?: string;
+  errors?: string[];
+  warnings?: string[];
+};
+
+function formString(formData: FormData, key: string): string {
+  const value = formData.get(key);
+  return typeof value === 'string' ? value : '';
+}
+
+function revalidateStory(projectId: string) {
+  revalidatePath('/');
+  revalidatePath('/projects');
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/projects/${projectId}/story`);
+}
+
+export async function markPromptReadyAction(projectId: string): Promise<void> {
+  const user = await requireUser();
+  const stories = await getStoryRepository();
+  await stories.markPromptReady(user.id, projectId);
+  revalidateStory(projectId);
+}
+
+export async function markWaitingForChatGptAction(projectId: string): Promise<void> {
+  const user = await requireUser();
+  const stories = await getStoryRepository();
+  await stories.markWaitingForChatGpt(user.id, projectId);
+  revalidateStory(projectId);
+}
+
+export async function importScreenplayAction(
+  projectId: string,
+  _prev: StoryActionState,
+  formData: FormData,
+): Promise<StoryActionState> {
+  try {
+    const user = await requireUser();
+    const raw = formString(formData, 'json');
+    const imported = importScreenplayFromText(raw);
+    if (!imported.ok) {
+      // Do not touch previously saved story versions.
+      return {
+        ok: false,
+        message: 'Import rejected — previous screenplay unchanged',
+        errors: imported.errors,
+      };
+    }
+
+    const stories = await getStoryRepository();
+    await stories.importScreenplay(user.id, projectId, imported.screenplay);
+    revalidateStory(projectId);
+    return {
+      ok: true,
+      message: 'Screenplay imported',
+      warnings: imported.warnings,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : 'Import failed',
+    };
+  }
+}
+
+export async function loadSampleScreenplayAction(projectId: string): Promise<void> {
+  const user = await requireUser();
+  const projects = await getProjectRepository();
+  const project = await projects.getById(user.id, projectId);
+  if (!project) {
+    throw new Error('Project not found');
+  }
+
+  const sample = createSampleScreenplay({
+    category: project.category,
+    visual_style: project.visual_style,
+    title: project.name,
+  });
+  const stories = await getStoryRepository();
+  await stories.importScreenplay(user.id, projectId, sample);
+  revalidateStory(projectId);
+}
+
+export async function saveScreenplayEditsAction(
+  projectId: string,
+  _prev: StoryActionState,
+  formData: FormData,
+): Promise<StoryActionState> {
+  try {
+    const user = await requireUser();
+    const raw = formString(formData, 'screenplay_json');
+    const parsedJson = JSON.parse(raw) as unknown;
+    const screenplay = parseScreenplayV1(parsedJson);
+    const stories = await getStoryRepository();
+    await stories.saveEditedScreenplay(user.id, projectId, screenplay);
+    revalidateStory(projectId);
+    return { ok: true, message: 'Screenplay saved' };
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return {
+        ok: false,
+        message: 'Validation failed — previous approved/imported work kept until a valid save',
+        errors: error.issues.map((issue) => {
+          const path = issue.path.length > 0 ? issue.path.join('.') : 'screenplay';
+          return `${path}: ${issue.message}`;
+        }),
+      };
+    }
+    if (error instanceof SyntaxError) {
+      return { ok: false, message: 'Screenplay JSON is invalid' };
+    }
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : 'Failed to save screenplay',
+    };
+  }
+}
+
+export async function approveStoryAction(projectId: string): Promise<void> {
+  const user = await requireUser();
+  const stories = await getStoryRepository();
+  await stories.approveStory(user.id, projectId);
+  revalidateStory(projectId);
+}
+
+export async function createCharacterAction(
+  projectId: string,
+  _prev: StoryActionState,
+  formData: FormData,
+): Promise<StoryActionState> {
+  try {
+    const user = await requireUser();
+    const characters = await getCharacterRepository();
+    const character = await characters.create(user.id, {
+      name: formString(formData, 'name'),
+      description: formString(formData, 'description'),
+      visual_identity: formString(formData, 'visual_identity'),
+      clothing: formString(formData, 'clothing'),
+      appearance_details: formString(formData, 'appearance_details'),
+    });
+    await characters.linkToProject(user.id, projectId, character.id);
+    revalidateStory(projectId);
+    return { ok: true, message: 'Character created and linked' };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : 'Failed to create character',
+    };
+  }
+}
+
+export async function deleteCharacterAction(projectId: string, characterId: string): Promise<void> {
+  const user = await requireUser();
+  const characters = await getCharacterRepository();
+  await characters.unlinkFromProject(user.id, projectId, characterId);
+  await characters.delete(user.id, characterId);
+  revalidateStory(projectId);
+}

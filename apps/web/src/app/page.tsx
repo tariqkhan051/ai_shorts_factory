@@ -51,8 +51,8 @@ export default async function DashboardPage() {
           Production control room
         </h1>
         <p className="max-w-2xl text-base text-muted sm:text-lg">
-          Create projects, capture ideas, and manage production state. Story studio and generation
-          pipelines arrive in later phases.
+          Create projects, approve screenplays, and run mock sequential scene generation with a
+          50-credit daily ledger. Live Google Flow stays off until Phase 4.
         </p>
       </section>
 
@@ -126,11 +126,10 @@ export default async function DashboardPage() {
       </section>
 
       <section className="rounded-lg border border-dashed border-border px-5 py-6">
-        <h2 className="text-lg font-medium text-foreground">Next up — Phase 2</h2>
+        <h2 className="text-lg font-medium text-foreground">Next up — Phase 4</h2>
         <p className="mt-2 max-w-3xl text-sm text-muted">
-          ChatGPT prompt generator, JSON import, five-scene validation, character library, and story
-          approval. Apply `packages/database/migrations/00001_init.sql` in Supabase before switching
-          `PROJECT_STORE=supabase`.
+          Verified single-scene Google Flow via Playwright behind the provider interface — only
+          after UI confirmation. Mock generation and the credit ledger are available now.
         </p>
       </section>
     </div>

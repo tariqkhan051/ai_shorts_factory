@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import type { WorkflowState } from '@ai-shorts-factory/shared-types';
+import { assertTransition } from './workflow-transitions.js';
 import type {
   CreateProjectInput,
   DashboardStats,
@@ -136,6 +138,25 @@ export class MemoryProjectRepository implements ProjectRepository {
       failedJobs: projects.filter((p) => failed.has(p.workflow_state)).length,
       needsIntervention: projects.filter((p) => intervention.has(p.workflow_state)).length,
     };
+  }
+
+  async setWorkflowState(
+    userId: string,
+    projectId: string,
+    state: WorkflowState,
+  ): Promise<ProjectRecord> {
+    const existing = await this.getById(userId, projectId);
+    if (!existing) {
+      throw new Error('Project not found');
+    }
+    assertTransition(existing.workflow_state, state);
+    const updated: ProjectRecord = {
+      ...existing,
+      workflow_state: state,
+      updated_at: nowIso(),
+    };
+    this.projects.set(projectId, updated);
+    return structuredClone(updated);
   }
 
   /** Test helper */

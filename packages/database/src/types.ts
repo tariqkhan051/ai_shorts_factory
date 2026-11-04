@@ -1,8 +1,5 @@
 import type { ContentCategory, VisualStyle, WorkflowState } from '@ai-shorts-factory/shared-types';
-import type {
-  CreateProjectPayload,
-  UpdateProjectPayload,
-} from '@ai-shorts-factory/validation';
+import type { CreateProjectPayload, UpdateProjectPayload } from '@ai-shorts-factory/validation';
 
 export type ProjectInputRecord = {
   id: string;
@@ -48,4 +45,5 @@ export interface ProjectRepository {
   update(userId: string, projectId: string, input: UpdateProjectInput): Promise<ProjectRecord>;
   softDelete(userId: string, projectId: string): Promise<void>;
   getDashboardStats(userId: string): Promise<DashboardStats>;
+  setWorkflowState(userId: string, projectId: string, state: WorkflowState): Promise<ProjectRecord>;
 }
