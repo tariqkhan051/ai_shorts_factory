@@ -50,4 +50,4 @@ Mock scene `.bin` placeholders are synthesized into color clips during assembly.
 
 ## Exact next step
 
-Phase 6 — Realtime dashboard + PWA notifications.
+Phase 6 — Realtime dashboard + PWA notifications (see `phase-6.md`).

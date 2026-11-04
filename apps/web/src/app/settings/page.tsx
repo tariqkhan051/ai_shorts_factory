@@ -1,20 +1,23 @@
 import { describeFlowProviderStatus } from '@ai-shorts-factory/flow-adapter/status';
 import { BUSINESS_DEFAULTS, PHASE } from '@ai-shorts-factory/shared-types';
+import { PushEnableButton } from '@/components/push-enable-button';
 import { getAppEnv } from '@/lib/env';
+import { isWebPushConfigured } from '@/lib/notifications/runtime';
 import { getObjectStorage } from '@/lib/storage';
 
 export default function SettingsPage() {
   const env = getAppEnv();
   const storage = getObjectStorage();
   const flow = describeFlowProviderStatus(process.env);
+  const webPushConfigured = isWebPushConfigured();
 
   return (
     <div className="space-y-8">
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
         <p className="max-w-2xl text-muted">
-          Runtime configuration overview. Phase {PHASE.current}: live Google Flow stays gated until
-          an operator verifies UI selectors. Web generation continues to use the mock provider.
+          Runtime configuration overview. Phase {PHASE.current}: realtime alerts and PWA install are
+          available; live Google Flow stays gated until UI selectors are verified.
         </p>
       </div>
 
@@ -97,6 +100,29 @@ export default function SettingsPage() {
             Live gates open for worker verify. Web mock generation remains the default product path.
           </p>
         )}
+      </section>
+
+      <section className="space-y-4 rounded-lg border border-border bg-background-elevated/50 p-5">
+        <div>
+          <h2 className="text-lg font-medium">Notifications & PWA</h2>
+          <p className="mt-1 text-sm text-muted">
+            In-app alerts update over SSE. Optional web push requires VAPID keys. The service worker
+            caches the app shell for installability.
+          </p>
+        </div>
+        <dl className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-md border border-border bg-background/60 px-3 py-3">
+            <dt className="text-xs uppercase tracking-wide text-muted">Web push</dt>
+            <dd className="mt-1 font-mono text-sm">
+              {webPushConfigured ? 'VAPID configured' : 'VAPID not configured'}
+            </dd>
+          </div>
+          <div className="rounded-md border border-border bg-background/60 px-3 py-3">
+            <dt className="text-xs uppercase tracking-wide text-muted">Manifest</dt>
+            <dd className="mt-1 font-mono text-sm">/manifest.webmanifest</dd>
+          </div>
+        </dl>
+        <PushEnableButton />
       </section>
     </div>
   );

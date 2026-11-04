@@ -16,6 +16,8 @@ export type {
 } from './job-types.js';
 export { WORKFLOW_JOB_TYPES, WORKFLOW_JOB_STATES } from './job-types.js';
 export { MemoryJobQueue } from './memory-job-queue.js';
+export { startLeaseHeartbeat } from './lease-heartbeat.js';
+export { nextJobIdempotencyKey } from './idempotency-keys.js';
 
 export type {
   GenerationSceneRecord,
@@ -32,6 +34,6 @@ export function getPackageMeta() {
     name: PACKAGE_NAME,
     phase: PACKAGE_PHASE,
     status: PACKAGE_STATUS,
-    description: 'Durable workflow state machine and PostgreSQL-backed job queue',
+    description: 'Workflow state machine, job queue leases, and sequential generation',
   } as const;
 }

@@ -1,5 +1,8 @@
 import { assembleProjectForUser } from '@/lib/generation/assemble-project';
 import { createGenerationRunner, getJobQueue } from '@/lib/generation/runtime';
+import { startLeaseHeartbeat } from '@ai-shorts-factory/workflow-engine';
+
+const DEFAULT_LEASE_SECONDS = 300;
 
 /**
  * Claim and run one queued generation/assembly job.
@@ -7,11 +10,13 @@ import { createGenerationRunner, getJobQueue } from '@/lib/generation/runtime';
  */
 export async function processNextGenerationJob(workerId: string): Promise<boolean> {
   const queue = getJobQueue();
-  const job = await queue.claim(workerId, 300);
+  const leaseSeconds = Number(process.env.WORKER_LEASE_SECONDS ?? DEFAULT_LEASE_SECONDS);
+  const job = await queue.claim(workerId, leaseSeconds);
   if (!job) {
     return false;
   }
 
+  const heartbeat = startLeaseHeartbeat(queue, job.id, workerId, leaseSeconds);
   try {
     if (job.jobType === 'ASSEMBLE_PROJECT') {
       await assembleProjectForUser(job.userId, job.projectId);
@@ -56,5 +61,7 @@ export async function processNextGenerationJob(workerId: string): Promise<boolea
     const message = error instanceof Error ? error.message : 'Worker failed';
     await queue.fail(job.id, workerId, message);
     return true;
+  } finally {
+    heartbeat.stop();
   }
 }

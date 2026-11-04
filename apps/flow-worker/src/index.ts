@@ -4,16 +4,19 @@ import {
   createVideoGenerationProvider,
   GoogleFlowPlaywrightProvider,
 } from '@ai-shorts-factory/flow-adapter/live';
-import { BUSINESS_DEFAULTS, PHASE } from '@ai-shorts-factory/shared-types';
+import { BUSINESS_DEFAULTS, PHASE, createLogger } from '@ai-shorts-factory/shared-types';
 import { MemoryObjectStorage } from '@ai-shorts-factory/storage';
 import { SCREENPLAY_SCHEMA_VERSION, type ScreenplayV1 } from '@ai-shorts-factory/validation';
 import {
   MemoryGenerationStore,
   MemoryJobQueue,
   SequentialGenerationRunner,
+  startLeaseHeartbeat,
   type JobQueue,
   type WorkflowJobRecord,
 } from '@ai-shorts-factory/workflow-engine';
+
+const log = createLogger('flow-worker');
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -49,7 +52,9 @@ async function processClaimedJob(
   runner: SequentialGenerationRunner,
   job: WorkflowJobRecord,
   workerId: string,
+  leaseSeconds: number,
 ): Promise<void> {
+  const heartbeat = startLeaseHeartbeat(queue, job.id, workerId, leaseSeconds);
   try {
     if (job.jobType === 'GENERATE_PROJECT_SCENES') {
       const result = await runner.runProject(job.userId, job.projectId, { workerId });
@@ -88,6 +93,8 @@ async function processClaimedJob(
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Worker failed';
     await queue.fail(job.id, workerId, message);
+  } finally {
+    heartbeat.stop();
   }
 }
 
@@ -103,34 +110,22 @@ async function main(): Promise<void> {
   const keepalive = process.env.FLOW_WORKER_KEEPALIVE === 'true';
   const smoke = process.env.FLOW_WORKER_SMOKE === 'true';
   const workerId = process.env.FLOW_WORKER_ID ?? `flow-worker:${process.pid}`;
+  const leaseSeconds = Number(process.env.WORKER_LEASE_SECONDS ?? 120);
   const flowStatus = describeFlowProviderStatus(process.env);
 
-  console.info(
-    JSON.stringify({
-      service: 'flow-worker',
-      phase: PHASE.current,
-      enabled,
-      provider: providerName,
-      keepalive,
-      smoke,
-      workerId,
-      flowStatus,
-      defaults: {
-        sceneCount: BUSINESS_DEFAULTS.sceneCount,
-        costPerScene: BUSINESS_DEFAULTS.estimatedCostPerScene,
-        model: BUSINESS_DEFAULTS.defaultGenerationModel,
-      },
-      note: 'Memory job queue is process-local; web mock generation uses an inline worker tick.',
-    }),
-  );
+  log.info('Flow worker starting', {
+    phase: PHASE.current,
+    enabled,
+    provider: providerName,
+    keepalive,
+    smoke,
+    workerId,
+    leaseSeconds,
+    gatesOk: flowStatus.gatesOk,
+  });
 
   if (!enabled) {
-    console.info(
-      JSON.stringify({
-        service: 'flow-worker',
-        message: 'FLOW_WORKER_ENABLED is false. Exiting without claiming jobs.',
-      }),
-    );
+    log.info('FLOW_WORKER_ENABLED is false. Exiting without claiming jobs.');
     return;
   }
 
@@ -196,20 +191,14 @@ async function main(): Promise<void> {
       idempotencyKey: `smoke:${Date.now()}`,
       payload: { mode: 'mock' },
     });
-    console.info(
-      JSON.stringify({
-        service: 'flow-worker',
-        message: 'Smoke job enqueued',
-        projectId,
-      }),
-    );
+    log.info('Smoke job enqueued', { projectId });
   }
 
   let idlePasses = 0;
   const maxIdlePasses = keepalive ? Number.POSITIVE_INFINITY : 3;
 
   while (idlePasses < maxIdlePasses) {
-    const job = await queue.claim(workerId, 120);
+    const job = await queue.claim(workerId, leaseSeconds);
     if (!job) {
       idlePasses += 1;
       if (keepalive) {
@@ -219,38 +208,27 @@ async function main(): Promise<void> {
     }
 
     idlePasses = 0;
-    console.info(
-      JSON.stringify({
-        service: 'flow-worker',
-        message: 'Job claimed',
-        jobId: job.id,
-        jobType: job.jobType,
-        projectId: job.projectId,
-      }),
-    );
-    await processClaimedJob(queue, runner, job, workerId);
+    log.info('Job claimed', {
+      jobId: job.id,
+      jobType: job.jobType,
+      projectId: job.projectId,
+    });
+    const started = Date.now();
+    await processClaimedJob(queue, runner, job, workerId, leaseSeconds);
     const finished = await queue.getById(job.id);
-    console.info(
-      JSON.stringify({
-        service: 'flow-worker',
-        message: 'Job finished',
-        jobId: job.id,
-        state: finished?.state,
-        lastError: finished?.lastError,
-      }),
-    );
+    log.info('Job finished', {
+      jobId: job.id,
+      state: finished?.state ?? null,
+      lastError: finished?.lastError ?? null,
+      durationMs: Date.now() - started,
+    });
   }
 
   if (provider instanceof GoogleFlowPlaywrightProvider) {
     await provider.dispose();
   }
 
-  console.info(
-    JSON.stringify({
-      service: 'flow-worker',
-      message: keepalive ? 'Keepalive loop ended' : 'Idle; exiting claim loop',
-    }),
-  );
+  log.info(keepalive ? 'Keepalive loop ended' : 'Idle; exiting claim loop');
 }
 
 main().catch((error: unknown) => {

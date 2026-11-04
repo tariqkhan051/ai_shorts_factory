@@ -10,3 +10,4 @@ export {
 } from './workflow-states.js';
 
 export { BUSINESS_DEFAULTS, PHASE } from './constants.js';
+export { createLogger, type Logger, type LogLevel, type StructuredLogFields } from './logger.js';

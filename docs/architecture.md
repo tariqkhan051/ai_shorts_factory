@@ -1,7 +1,7 @@
 # AI Shorts Factory — Architecture
 
-**Phase:** 5 — FFmpeg Assembly  
-**Status:** Vertical ≤59s assembly via media-engine + media-worker smoke  
+**Phase:** 6 — Realtime Dashboard and Notifications  
+**Status:** SSE live dashboard, in-app alerts, PWA shell, optional web push  
 **Last updated:** 2026-11-04
 
 ## 1. Architecture assessment
@@ -136,8 +136,8 @@ Transactional reservations; immutable ledger entries; compensating corrections; 
 | 3     | Credits + mock sequential generation + job queue      |
 | 4     | Verified single-scene Google Flow automation          |
 | 5     | FFmpeg assembly under 59s                             |
-| 6     | Realtime dashboard + PWA notifications                |
-| 7     | Hardening + deployment                                |
+| 6     | Realtime dashboard + PWA notifications ✅             |
+| 7     | Hardening + deployment ✅                             |
 
 **Do not start the next phase until the current phase passes acceptance criteria.**
 

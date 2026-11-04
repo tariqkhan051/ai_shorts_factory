@@ -18,7 +18,12 @@
     "test:unit": "turbo run test --filter=@ai-shorts-factory/validation --filter=@ai-shorts-factory/shared-types --filter=@ai-shorts-factory/workflow-engine --filter=@ai-shorts-factory/credit-manager",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml,css}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml,css}\"",
-    "clean": "turbo run clean && rimraf node_modules"
+    "clean": "turbo run clean && rimraf node_modules",
+    "validate:env": "node ./scripts/validate-env.mjs",
+    "db:migrate": "node ./scripts/migrate-check.mjs",
+    "deploy:web": "pwsh -File ./scripts/deploy-web.ps1",
+    "deploy:workers": "pwsh -File ./scripts/deploy-workers.ps1",
+    "audit:deps": "pnpm audit --audit-level=high"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

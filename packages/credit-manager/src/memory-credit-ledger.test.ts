@@ -70,4 +70,22 @@ describe('MemoryCreditLedger', () => {
     expect(balances.unknownConsumption).toBe(0);
     expect(balances.spendable).toBe(50);
   });
+
+  it('allows a new reserve with the same idempotency key after release', async () => {
+    const first = await ledger.reserve({
+      userId,
+      amount: 10,
+      idempotencyKey: 'reuse-after-release',
+    });
+    await ledger.releaseReservation(first.id, { reason: 'pre_submit_failure' });
+    const second = await ledger.reserve({
+      userId,
+      amount: 10,
+      idempotencyKey: 'reuse-after-release',
+    });
+    expect(second.id).not.toBe(first.id);
+    const balances = await ledger.getBalances(userId);
+    expect(balances.reserved).toBe(10);
+    expect(balances.spendable).toBe(40);
+  });
 });

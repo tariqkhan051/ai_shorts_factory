@@ -22,6 +22,7 @@ export interface ObjectStorage {
   putObject(input: PutObjectInput): Promise<StoredObject>;
   getObject(key: string): Promise<{ body: Buffer; contentType: string } | null>;
   deleteObject(key: string): Promise<void>;
+  listObjectKeys(prefix: string): Promise<string[]>;
   createSignedDownloadUrl(key: string, options?: SignedUrlOptions): Promise<string>;
   createSignedUploadUrl(key: string, options?: SignedUrlOptions): Promise<string>;
 }

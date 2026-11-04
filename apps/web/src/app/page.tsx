@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { BUSINESS_DEFAULTS, PHASE } from '@ai-shorts-factory/shared-types';
+import { LiveDashboardBanner } from '@/components/live-dashboard';
 import { getCurrentUser } from '@/lib/auth';
 import { getAppEnv } from '@/lib/env';
+import { getNotificationStore } from '@/lib/notifications/runtime';
 import { getProjectRepository } from '@/lib/projects/repository';
 
 export default async function DashboardPage() {
@@ -17,6 +19,7 @@ export default async function DashboardPage() {
         needsIntervention: 0,
       };
   const recent = user ? (await repo.listByUser(user.id)).slice(0, 5) : [];
+  const notifications = user ? await getNotificationStore().listByUser(user.id, { limit: 8 }) : [];
 
   const metricCards = [
     {
@@ -51,10 +54,12 @@ export default async function DashboardPage() {
           Production control room
         </h1>
         <p className="max-w-2xl text-base text-muted sm:text-lg">
-          Create projects, approve screenplays, and run mock sequential scene generation with a
-          50-credit daily ledger. Live Google Flow stays off until Phase 4.
+          Live project events and in-app alerts stream into this dashboard. Install the PWA for
+          offline shell caching and optional web push when VAPID keys are configured.
         </p>
       </section>
+
+      {user ? <LiveDashboardBanner /> : null}
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {metricCards.map((card) => (
@@ -97,39 +102,70 @@ export default async function DashboardPage() {
         </article>
 
         <article className="rounded-lg border border-border bg-background-elevated/60 p-5">
-          <h2 className="text-lg font-medium text-foreground">System status</h2>
-          <ul className="mt-4 space-y-3 text-sm">
-            <StatusRow label="Web shell" value="Online" tone="success" />
-            <StatusRow
-              label="Data store"
-              value={env.database.store}
-              tone={env.database.store === 'supabase' ? 'success' : 'warning'}
-            />
-            <StatusRow
-              label="Supabase Auth"
-              value={env.supabaseConfigured ? 'Configured' : 'Not configured'}
-              tone={env.supabaseConfigured ? 'success' : 'muted'}
-            />
-            <StatusRow
-              label="R2 storage"
-              value={env.r2Configured ? 'Configured' : 'Memory fallback'}
-              tone={env.r2Configured ? 'success' : 'warning'}
-            />
-            <StatusRow label="Flow provider" value="Mock only" tone="warning" />
-            <StatusRow
-              label="Session"
-              value={user ? `${user.mode}:${user.email}` : 'Anonymous'}
-              tone={user ? 'success' : 'muted'}
-            />
-          </ul>
+          <h2 className="text-lg font-medium text-foreground">Latest alerts</h2>
+          {notifications.length === 0 ? (
+            <p className="mt-4 text-sm text-muted">
+              Alerts appear when generation or assembly finishes, fails, or needs intervention.
+            </p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {notifications.map((item) => (
+                <li
+                  key={item.id}
+                  className="border-b border-border/60 pb-3 last:border-0 last:pb-0"
+                >
+                  {item.href ? (
+                    <Link href={item.href} className="hover:text-accent">
+                      <p className="text-sm font-medium">{item.title}</p>
+                      <p className="mt-1 text-xs text-muted">{item.body}</p>
+                    </Link>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium">{item.title}</p>
+                      <p className="mt-1 text-xs text-muted">{item.body}</p>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </article>
       </section>
 
+      <section className="rounded-lg border border-border bg-background-elevated/60 p-5">
+        <h2 className="text-lg font-medium text-foreground">System status</h2>
+        <ul className="mt-4 space-y-3 text-sm">
+          <StatusRow label="Web shell" value="Online" tone="success" />
+          <StatusRow
+            label="Data store"
+            value={env.database.store}
+            tone={env.database.store === 'supabase' ? 'success' : 'warning'}
+          />
+          <StatusRow
+            label="Supabase Auth"
+            value={env.supabaseConfigured ? 'Configured' : 'Not configured'}
+            tone={env.supabaseConfigured ? 'success' : 'muted'}
+          />
+          <StatusRow
+            label="R2 storage"
+            value={env.r2Configured ? 'Configured' : 'Memory fallback'}
+            tone={env.r2Configured ? 'success' : 'warning'}
+          />
+          <StatusRow label="Realtime" value="SSE hub (memory) / Supabase later" tone="success" />
+          <StatusRow
+            label="Session"
+            value={user ? `${user.mode}:${user.email}` : 'Anonymous'}
+            tone={user ? 'success' : 'muted'}
+          />
+        </ul>
+      </section>
+
       <section className="rounded-lg border border-dashed border-border px-5 py-6">
-        <h2 className="text-lg font-medium text-foreground">Next up — Phase 6</h2>
+        <h2 className="text-lg font-medium text-foreground">Phase 7 — deployment ready</h2>
         <p className="mt-2 max-w-3xl text-sm text-muted">
-          Realtime dashboard and PWA notifications. Assembly and mock generation are available now;
-          live Flow stays operator-gated.
+          Health/ready probes, security headers, RLS hardening migration, lease reclaim tests, and
+          deploy scripts are in place. Shared Postgres job queue remains the next production scale
+          step — see docs/ops/runbook.md.
         </p>
       </section>
     </div>

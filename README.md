@@ -2,9 +2,9 @@
 
 Cloud-based short video production platform: idea → ChatGPT screenplay import → sequential scene generation → FFmpeg assembly → reviewed MP4 download.
 
-**Current phase: 5 — FFmpeg Assembly**
+**Current phase: 7 — Hardening and Deployment**
 
-This is a real application under phased construction. Paid APIs are **not** enabled. Story writing uses a copyable ChatGPT website prompt + JSON import. Product generation defaults to the mock provider; assembly uses FFmpeg toward a ≤59s vertical MP4. Live Google Flow is Playwright UI automation only, hard-gated until an operator verifies selectors.
+This is a real application under phased construction. Paid APIs are **not** enabled. Story writing uses a copyable ChatGPT website prompt + JSON import. Product generation defaults to the mock provider; assembly uses FFmpeg toward a ≤59s vertical MP4. The dashboard streams in-app alerts over SSE and ships as an installable PWA. Live Google Flow stays Playwright-gated. Phase 7 adds health/ready probes, security headers, RLS hardening, lease reclaim tests, storage purge helpers, and deploy/ops scripts.
 
 ## Stack
 
@@ -114,8 +114,22 @@ See [docs/architecture.md](./docs/architecture.md) and [docs/phases/](./docs/pha
 | 3     | Credits + mock sequential generation ✅              |
 | 4     | Verified single-scene Google Flow ✅                 |
 | 5     | FFmpeg assembly ✅                                   |
-| 6     | Realtime dashboard + notifications                   |
-| 7     | Hardening + deployment                               |
+| 6     | Realtime dashboard + notifications ✅                |
+| 7     | Hardening + deployment ✅                            |
+
+## Deploy / ops
+
+See [docs/ops/runbook.md](./docs/ops/runbook.md).
+
+```bash
+pnpm validate:env
+pnpm db:migrate          # prints apply instructions; needs SUPABASE_DB_URL + psql
+# Windows deploy helpers:
+pwsh -File ./scripts/deploy-web.ps1
+pwsh -File ./scripts/deploy-workers.ps1
+```
+
+Probes: `GET /api/health`, `GET /api/ready`.
 
 ## Safety rules
 

@@ -232,6 +232,13 @@ export class MemoryCreditLedger implements CreditLedger {
       settledAt: nowIso(),
     };
     state.reservations.set(reservationId, updated);
+    // Known-unsubmitted releases free the idempotency key for a later retry.
+    for (const [key, id] of state.reserveIdempotency.entries()) {
+      if (id === reservationId) {
+        state.reserveIdempotency.delete(key);
+        break;
+      }
+    }
     return structuredClone(updated);
   }
 

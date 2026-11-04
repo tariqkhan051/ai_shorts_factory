@@ -54,6 +54,13 @@ export class MemoryObjectStorage implements ObjectStorage {
     this.objects.delete(key);
   }
 
+  async listObjectKeys(prefix: string): Promise<string[]> {
+    if (prefix) {
+      assertSafeStorageKey(prefix.endsWith('/') ? prefix.slice(0, -1) : prefix);
+    }
+    return [...this.objects.keys()].filter((key) => key.startsWith(prefix)).sort();
+  }
+
   async createSignedDownloadUrl(key: string, options?: SignedUrlOptions): Promise<string> {
     assertSafeStorageKey(key);
     if (!this.objects.has(key)) {

@@ -15,6 +15,6 @@ export const BUSINESS_DEFAULTS = {
 } as const;
 
 export const PHASE = {
-  current: 5,
-  name: 'FFmpeg Assembly',
+  current: 7,
+  name: 'Hardening and Deployment',
 } as const;

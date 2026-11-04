@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { assembleProject } from '@ai-shorts-factory/media-engine';
 import { BUSINESS_DEFAULTS } from '@ai-shorts-factory/shared-types';
 import { AppGenerationStore } from '@/lib/generation/app-generation-store';
+import { getNotificationPublisher } from '@/lib/notifications/runtime';
 import {
   getCharacterRepository,
   getProjectRepository,
@@ -120,6 +121,17 @@ export async function assembleProjectForUser(
       throw new Error(quality.failures.join('; '));
     }
 
+    const publisher = await getNotificationPublisher();
+    publisher.publishProjectUpdated(userId, projectId);
+    await publisher.publish({
+      userId,
+      projectId,
+      type: 'assembly_completed',
+      title: 'Final video assembled',
+      body: `Output ${quality.width}×${quality.height}, ${quality.durationSeconds.toFixed(1)}s (max 59s).`,
+      href: `/projects/${projectId}/assemble`,
+    });
+
     return {
       outputStorageKey,
       durationSeconds: quality.durationSeconds,
@@ -134,6 +146,20 @@ export async function assembleProjectForUser(
       await projects.setWorkflowState(userId, projectId, 'PAUSED');
     } catch {
       // ignore secondary transition errors
+    }
+    try {
+      const publisher = await getNotificationPublisher();
+      publisher.publishProjectUpdated(userId, projectId);
+      await publisher.publish({
+        userId,
+        projectId,
+        type: 'assembly_failed',
+        title: 'Assembly failed',
+        body: error instanceof Error ? error.message : 'FFmpeg assembly failed',
+        href: `/projects/${projectId}/assemble`,
+      });
+    } catch {
+      // notification failures must not mask assembly errors
     }
     throw error;
   } finally {

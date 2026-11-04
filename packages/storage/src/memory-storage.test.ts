@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
+import { purgeProjectPrefix } from './lifecycle.js';
 import { MemoryObjectStorage } from './memory-storage.js';
 import { assertSafeStorageKey, buildReferenceAssetKey } from './types.js';
 
@@ -38,5 +39,28 @@ describe('MemoryObjectStorage', () => {
     });
     expect(key.includes('..')).toBe(false);
     expect(key.startsWith('users/user-1/references/project-1/')).toBe(true);
+  });
+
+  it('purges all objects under a project prefix', async () => {
+    await storage.putObject({
+      key: 'users/u1/projects/p1/scenes/1.mp4',
+      body: Buffer.from('a'),
+      contentType: 'video/mp4',
+    });
+    await storage.putObject({
+      key: 'users/u1/projects/p1/final/out.mp4',
+      body: Buffer.from('b'),
+      contentType: 'video/mp4',
+    });
+    await storage.putObject({
+      key: 'users/u1/projects/p2/final/out.mp4',
+      body: Buffer.from('c'),
+      contentType: 'video/mp4',
+    });
+
+    const result = await purgeProjectPrefix(storage, 'u1', 'p1');
+    expect(result.deletedKeys).toHaveLength(2);
+    expect(await storage.getObject('users/u1/projects/p1/final/out.mp4')).toBeNull();
+    expect(await storage.getObject('users/u1/projects/p2/final/out.mp4')).not.toBeNull();
   });
 });

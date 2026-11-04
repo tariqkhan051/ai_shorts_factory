@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/auth';
 import { getAppEnv } from '@/lib/env';
+import { NotificationCenter } from '@/components/notification-center';
+import { PwaRegister } from '@/components/pwa-register';
 import { SignOutButton } from '@/components/sign-out-button';
 
 const navItems = [
@@ -16,6 +18,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen">
+      <PwaRegister />
       <header className="border-b border-border/80 bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Link href="/" className="group flex items-baseline gap-3">
@@ -36,6 +39,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
             </nav>
+            {user ? <NotificationCenter /> : null}
             <div className="hidden items-center gap-2 border-l border-border pl-3 text-xs text-muted sm:flex">
               <span className="font-mono">{env.database.store}</span>
               {user?.mode === 'supabase' ? (

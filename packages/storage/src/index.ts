@@ -12,6 +12,7 @@ export { assertSafeStorageKey, buildReferenceAssetKey } from './types.js';
 export { MemoryObjectStorage } from './memory-storage.js';
 export { R2ObjectStorage, isR2Configured, type R2StorageConfig } from './r2-storage.js';
 export { createObjectStorage, type StorageMode } from './factory.js';
+export { buildProjectStoragePrefix, purgeProjectPrefix } from './lifecycle.js';
 
 export function getPackageMeta() {
   return {

@@ -18,6 +18,18 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'AI Shorts Factory',
   description: 'Cloud-based short video production platform — idea to approved MP4.',
+  applicationName: 'AI Shorts Factory',
+  manifest: '/manifest.webmanifest',
+  themeColor: '#0b0f14',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Shorts Factory',
+  },
+  icons: {
+    icon: '/icons/icon.svg',
+    apple: '/icons/icon.svg',
+  },
 };
 
 export default function RootLayout({

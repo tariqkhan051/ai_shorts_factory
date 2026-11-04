@@ -50,6 +50,13 @@ jobs:
           # Never consume Google Flow credits in CI
           FLOW_WORKER_ENABLED: 'false'
 
+      - name: Dependency audit (high+)
+        run: pnpm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Env validation (dev defaults)
+        run: pnpm validate:env
+
       - name: Build
         run: pnpm build
         env:

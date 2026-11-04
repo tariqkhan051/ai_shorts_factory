@@ -16,13 +16,15 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@ai-shorts-factory/shared-types": "workspace:*"
+    "@ai-shorts-factory/shared-types": "workspace:*",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@types/web-push": "^3.6.4",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

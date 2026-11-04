@@ -35,4 +35,19 @@ describe('MemoryJobQueue', () => {
     const done = await queue.getById(first.id);
     expect(done?.state).toBe('completed');
   });
+
+  it('heartbeats extend an active lease', async () => {
+    await queue.enqueue({
+      projectId: 'p1',
+      userId: 'u1',
+      jobType: 'ASSEMBLE_PROJECT',
+      idempotencyKey: 'assemble:p1',
+    });
+    const claimed = await queue.claim('worker-a', 30);
+    expect(claimed).not.toBeNull();
+    const before = claimed!.leaseExpiresAt!;
+    await queue.heartbeat(claimed!.id, 'worker-a', 60);
+    const after = await queue.getById(claimed!.id);
+    expect(Date.parse(after!.leaseExpiresAt!)).toBeGreaterThan(Date.parse(before));
+  });
 });
