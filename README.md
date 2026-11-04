@@ -2,9 +2,9 @@
 
 Cloud-based short video production platform: idea → ChatGPT screenplay import → sequential scene generation → FFmpeg assembly → reviewed MP4 download.
 
-**Current phase: 0 — Repository Audit and Foundation**
+**Current phase: 1 — Database and Project Management**
 
-This is a real application under phased construction. Live Google Flow automation and paid APIs are **not** enabled in Phase 0.
+This is a real application under phased construction. Live Google Flow automation and paid APIs are **not** enabled.
 
 ## Stack
 
@@ -41,11 +41,18 @@ docs/architecture.md
 
 ```bash
 pnpm install
-cp .env.example .env.local
+cp .env.example apps/web/.env.local
+pnpm build
 pnpm dev:web
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+Default local mode uses an in-memory project store (`PROJECT_STORE=memory`) so you can create/edit projects without Supabase. For Supabase:
+
+1. Apply `packages/database/migrations/00001_init.sql`
+2. Set `PROJECT_STORE=supabase` plus the public Supabase URL/anon key
+3. Sign up at `/signup`
 
 Other scripts:
 
@@ -59,9 +66,9 @@ pnpm build
 Workers stay off unless explicitly enabled:
 
 ```bash
-# still Phase 0 scaffolds — exit after status log
-FLOW_WORKER_ENABLED=true FLOW_PROVIDER=mock pnpm --filter @ai-shorts-factory/flow-worker start
+FLOW_WORKER_ENABLED=true FLOW_PROVIDER=mock pnpm --filter @ai-shorts-factory/flow-worker dev
 ```
+
 
 ## Environment
 
@@ -83,12 +90,12 @@ Copy `.env.example`. Never commit secrets. Never expose:
 
 ## Phase roadmap
 
-See [docs/architecture.md](./docs/architecture.md) and [docs/phases/phase-0.md](./docs/phases/phase-0.md).
+See [docs/architecture.md](./docs/architecture.md), [docs/phases/phase-0.md](./docs/phases/phase-0.md), and [docs/phases/phase-1.md](./docs/phases/phase-1.md).
 
 | Phase | Focus                                             |
 | ----- | ------------------------------------------------- |
-| 0     | Monorepo, shell, docs, CI, mock provider contract |
-| 1     | Database, auth, RLS, projects, storage            |
+| 0     | Monorepo, shell, docs, CI, mock provider contract ✅ |
+| 1     | Database, auth, RLS, projects, storage ✅           |
 | 2     | ChatGPT story studio                              |
 | 3     | Credits + mock sequential generation              |
 | 4     | Verified single-scene Google Flow                 |

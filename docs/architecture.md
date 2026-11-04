@@ -1,7 +1,7 @@
 # AI Shorts Factory — Architecture
 
-**Phase:** 0 — Repository Audit and Foundation  
-**Status:** Application shell and monorepo foundation  
+**Phase:** 1 — Database and Project Management  
+**Status:** Projects CRUD + auth + storage abstraction online  
 **Last updated:** 2026-11-04
 
 ## 1. Architecture assessment

@@ -40,7 +40,13 @@ export function buildReferenceAssetKey(params: {
   projectId?: string;
   filename: string;
 }): string {
-  const safeName = params.filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
-  const projectPart = params.projectId ?? 'library';
-  return `users/${params.userId}/references/${projectPart}/${Date.now()}-${safeName}`;
+  const baseName = params.filename.split(/[/\\]/).pop() ?? 'asset';
+  const safeName = baseName
+    .replace(/\.\./g, '_')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/^\.+/, '_')
+    .slice(0, 120);
+  const projectPart = (params.projectId ?? 'library').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const userPart = params.userId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `users/${userPart}/references/${projectPart}/${Date.now()}-${safeName || 'asset'}`;
 }
