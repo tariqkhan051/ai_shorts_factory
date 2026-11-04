@@ -3,12 +3,18 @@ export {
   characterSchemaV1,
   sceneSchemaV1,
   publishingMetadataSchemaV1,
+  visualIdentityStructuredSchemaV1,
+  visualIdentitySchemaV1,
   screenplaySchemaV1,
   parseScreenplayV1,
   safeParseScreenplayV1,
   formatScreenplayErrors,
+  formatVisualIdentity,
+  slugifyCharacterId,
   type ScreenplayV1,
   type SceneV1,
+  type CharacterV1,
+  type VisualIdentityStructuredV1,
 } from './screenplay-v1.js';
 
 export {

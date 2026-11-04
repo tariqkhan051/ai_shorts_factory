@@ -6,14 +6,21 @@ import { BUSINESS_DEFAULTS, type SceneState } from '@ai-shorts-factory/shared-ty
  */
 
 export type FlowCharacterReferenceHint = {
+  characterId?: string;
   name: string;
   visualIdentity: string;
   clothing?: string;
   appearanceDetails?: string;
+  continuityRules?: string;
+  referenceReady?: boolean;
+  primaryReferenceAssetId?: string;
+  additionalReferenceAssetIds?: string[];
+  missingReference?: boolean;
   /** Operator hint: which Flow library asset / Ingredients item to select. */
   flowLibraryHint?: string;
   /** Optional local or durable URL for display in the app (not uploaded by automation). */
   previewUrl?: string;
+  additionalPreviewUrls?: string[];
 };
 
 export type FlowSceneGenerationTask = {
@@ -22,6 +29,8 @@ export type FlowSceneGenerationTask = {
   sceneNumber: number;
   title: string;
   flowPrompt: string;
+  continuityPrompt?: string;
+  combinedPrompt?: string;
   model: string;
   aspectRatio: string;
   durationSeconds: number;
@@ -31,6 +40,8 @@ export type FlowSceneGenerationTask = {
   characterReferences: FlowCharacterReferenceHint[];
   instructions: string[];
   completionStatus: SceneState;
+  verificationFailureReason?: string;
+  assetPreviewUrl?: string;
 };
 
 export type FlowGenerationPackage = {
@@ -57,9 +68,14 @@ export type BuildFlowGenerationPackageInput = {
     sceneNumber: number;
     title: string;
     flowPrompt: string;
+    continuityPrompt?: string;
+    combinedPrompt?: string;
     durationSeconds?: number;
     completionStatus?: SceneState;
     confirmedCreditCost?: number | 'unknown';
+    characterReferences?: FlowCharacterReferenceHint[];
+    verificationFailureReason?: string;
+    assetPreviewUrl?: string;
   }>;
   characterReferences?: FlowCharacterReferenceHint[];
   model?: string;
@@ -101,21 +117,26 @@ export function buildFlowGenerationPackage(
     .sort((a, b) => a.sceneNumber - b.sceneNumber)
     .map((scene): FlowSceneGenerationTask => {
       const durationSeconds = scene.durationSeconds ?? defaultDuration;
+      const sceneRefs = (scene.characterReferences ?? refs).map((ref) => ({ ...ref }));
       return {
         projectId: input.projectId,
         sceneId: scene.sceneId,
         sceneNumber: scene.sceneNumber,
         title: scene.title,
         flowPrompt: scene.flowPrompt,
+        continuityPrompt: scene.continuityPrompt,
+        combinedPrompt: scene.combinedPrompt,
         model,
         aspectRatio,
         durationSeconds,
         resolution,
         estimatedCreditCost: estimatedCostPerScene,
         confirmedCreditCost: scene.confirmedCreditCost,
-        characterReferences: refs.map((ref) => ({ ...ref })),
+        characterReferences: sceneRefs,
         instructions: [...MANUAL_INSTRUCTIONS],
         completionStatus: scene.completionStatus ?? 'PROMPT_READY',
+        verificationFailureReason: scene.verificationFailureReason,
+        assetPreviewUrl: scene.assetPreviewUrl,
       };
     });
 

@@ -3,9 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   describeFlowProviderStatus,
-  loadFlowUiRecipeFromFile,
   type VideoGenerationProvider,
 } from '@ai-shorts-factory/flow-adapter';
+import { loadFlowUiRecipeFromFile } from '@ai-shorts-factory/flow-adapter/recipe';
 import {
   createVideoGenerationProvider,
   GoogleFlowPlaywrightProvider,

@@ -2,7 +2,7 @@ import { readFlowLiveConfig } from './flow-live-config.js';
 import { readFlowLiveGateEnv } from './flow-live-gates.js';
 import { describeFlowSessionStatus, type FlowSessionStatusReport } from './flow-session-status.js';
 import { isRecipeVerified } from './flow-ui-recipe.js';
-import { loadFlowUiRecipeFromEnv } from './load-recipe.js';
+import { loadFlowUiRecipeFromEnv } from './load-recipe-env.js';
 
 /**
  * Web-safe Flow status helper — no Playwright imports.

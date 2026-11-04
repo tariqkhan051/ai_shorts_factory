@@ -10,7 +10,6 @@ import {
   readFlowLiveConfig,
   isLiveFlowProviderName,
 } from '@ai-shorts-factory/flow-adapter';
-import { BUSINESS_DEFAULTS } from '@ai-shorts-factory/shared-types';
 import { nextJobIdempotencyKey } from '@ai-shorts-factory/workflow-engine';
 import { requireUser } from '@/lib/auth';
 import { AppGenerationStore } from '@/lib/generation/app-generation-store';
@@ -333,5 +332,3 @@ export async function getCreditSnapshotAction(): Promise<{
   const user = await requireUser();
   return getCreditLedger().getBalances(user.id);
 }
-
-export { BUSINESS_DEFAULTS, LIVE_SPEND_CONFIRM_PHRASE };

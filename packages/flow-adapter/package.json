@@ -11,10 +11,20 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./manual": {
+      "types": "./dist/manual-generation-package.d.ts",
+      "import": "./dist/manual-generation-package.js",
+      "default": "./dist/manual-generation-package.js"
+    },
     "./status": {
       "types": "./dist/flow-status.d.ts",
       "import": "./dist/flow-status.js",
       "default": "./dist/flow-status.js"
+    },
+    "./recipe": {
+      "types": "./dist/load-recipe.d.ts",
+      "import": "./dist/load-recipe.js",
+      "default": "./dist/load-recipe.js"
     },
     "./live": {
       "types": "./dist/live.d.ts",

@@ -1,13 +1,19 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { describeFlowProviderStatus, isLiveFlowProviderName } from '@ai-shorts-factory/flow-adapter';
+import {
+  describeFlowProviderStatus,
+  isLiveFlowProviderName,
+  isSceneReadyForAssembly,
+} from '@ai-shorts-factory/flow-adapter';
 import { BUSINESS_DEFAULTS } from '@ai-shorts-factory/shared-types';
 import {
   retryFailedSceneAction,
   startMockGenerationAction,
 } from '@/app/projects/[id]/generate/actions';
+import { CopyPromptButton } from '@/components/copy-prompt-button';
 import { FlowIntegrationPanel } from '@/components/flow-integration-panel';
 import { LiveCanaryPanel } from '@/components/live-canary-panel';
+import { ManualSceneUpload } from '@/components/manual-scene-upload';
 import { requireUser } from '@/lib/auth';
 import { AppGenerationStore } from '@/lib/generation/app-generation-store';
 import { buildFlowIntegrationSnapshot } from '@/lib/generation/flow-integration';
@@ -168,7 +174,19 @@ export default async function GeneratePage({ params }: PageProps) {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-lg font-medium">Scenes</h2>
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-medium">Scenes</h2>
+                <p className="text-sm text-muted">
+                  Copy the full prompt → generate in normal Chrome Flow → upload the MP4 here.
+                  Full package view:{' '}
+                  <Link href={`/projects/${project.id}/flow-package`} className="text-accent underline">
+                    Flow Generation Package
+                  </Link>
+                  .
+                </p>
+              </div>
+            </div>
             {scenes.length === 0 ? (
               <p className="text-sm text-muted">
                 Scenes materialize when generation starts from the approved screenplay.
@@ -185,45 +203,57 @@ export default async function GeneratePage({ params }: PageProps) {
                       scene.state === 'DOWNLOAD_FAILED' ||
                       scene.state === 'VERIFICATION_FAILED' ||
                       scene.state === 'UNKNOWN_SUBMISSION';
+                    const realReady = isSceneReadyForAssembly(scene.state) && scene.assetOrigin === 'REAL_GENERATED';
                     return (
-                      <li
-                        key={scene.id}
-                        className="flex flex-wrap items-start justify-between gap-3 px-4 py-4"
-                      >
-                        <div className="min-w-0 space-y-1">
-                          <p className="font-medium">
-                            Scene {scene.sceneNumber}: {scene.title}
-                          </p>
-                          <p className="font-mono text-xs uppercase tracking-wide text-accent">
-                            {scene.state}
-                            {scene.assetOrigin ? ` · ${scene.assetOrigin}` : ''}
-                          </p>
-                          <p className="line-clamp-2 text-sm text-muted">{scene.flowPrompt}</p>
-                          {scene.errorMessage ? (
-                            <p className="text-sm text-danger">{scene.errorMessage}</p>
-                          ) : null}
-                          {scene.assetStorageKey ? (
-                            <p className="truncate font-mono text-xs text-muted">
-                              {scene.assetStorageKey}
+                      <li key={scene.id} className="space-y-4 px-4 py-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0 space-y-1">
+                            <p className="font-medium">
+                              Scene {scene.sceneNumber}: {scene.title}
                             </p>
-                          ) : null}
+                            <p className="font-mono text-xs uppercase tracking-wide text-accent">
+                              {scene.state}
+                              {scene.assetOrigin ? ` · ${scene.assetOrigin}` : ''}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <CopyPromptButton text={scene.flowPrompt} />
+                            {canRetry ? (
+                              <form
+                                action={retryFailedSceneAction.bind(
+                                  null,
+                                  project.id,
+                                  scene.sceneNumber,
+                                )}
+                              >
+                                <button
+                                  type="submit"
+                                  className="rounded-md border border-border px-3 py-2 text-sm hover:bg-background"
+                                >
+                                  Retry scene {scene.sceneNumber} (mock)
+                                </button>
+                              </form>
+                            ) : null}
+                          </div>
                         </div>
-                        {canRetry ? (
-                          <form
-                            action={retryFailedSceneAction.bind(
-                              null,
-                              project.id,
-                              scene.sceneNumber,
-                            )}
-                          >
-                            <button
-                              type="submit"
-                              className="rounded-md border border-border px-3 py-2 text-sm hover:bg-background"
-                            >
-                              Retry scene {scene.sceneNumber} (mock)
-                            </button>
-                          </form>
+                        <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-background p-3 font-mono text-xs text-muted">
+                          {scene.flowPrompt}
+                        </pre>
+                        {scene.errorMessage ? (
+                          <p className="text-sm text-danger">{scene.errorMessage}</p>
                         ) : null}
+                        {realReady ? (
+                          <p className="text-sm text-success">
+                            Verified real asset stored
+                            {scene.assetStorageKey ? ` · ${scene.assetStorageKey}` : ''}.
+                          </p>
+                        ) : (
+                          <ManualSceneUpload
+                            projectId={project.id}
+                            sceneId={scene.id}
+                            sceneNumber={scene.sceneNumber}
+                          />
+                        )}
                       </li>
                     );
                   })}

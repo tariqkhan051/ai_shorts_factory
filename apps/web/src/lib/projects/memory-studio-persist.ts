@@ -3,11 +3,14 @@ import { dirname, join } from 'node:path';
 import type {
   MemoryCharacterRepository,
   MemoryProjectRepository,
+  MemoryReferenceAssetRepository,
   MemoryStoryRepository,
   ProjectRecord,
   StoryRecord,
   StoryVersionRecord,
   CharacterRecord,
+  CharacterVersionRecord,
+  ReferenceAssetRecord,
 } from '@ai-shorts-factory/database';
 import type { GenerationSceneRecord } from '@ai-shorts-factory/workflow-engine';
 
@@ -19,6 +22,8 @@ type MemoryStudioSnapshot = {
   storyVersions: StoryVersionRecord[];
   characters: CharacterRecord[];
   characterLinks: Array<{ projectId: string; characterIds: string[] }>;
+  characterVersions?: CharacterVersionRecord[];
+  referenceAssets?: ReferenceAssetRecord[];
   scenesByProject: Record<string, GenerationSceneRecord[]>;
 };
 
@@ -30,6 +35,7 @@ export async function loadMemoryStudioSnapshot(input: {
   projects: MemoryProjectRepository;
   stories: MemoryStoryRepository;
   characters: MemoryCharacterRepository;
+  references: MemoryReferenceAssetRepository;
   scenes: Map<string, GenerationSceneRecord[]>;
 }): Promise<boolean> {
   try {
@@ -44,7 +50,9 @@ export async function loadMemoryStudioSnapshot(input: {
     input.characters.importAll({
       characters: snapshot.characters ?? [],
       projectLinks: snapshot.characterLinks ?? [],
+      versions: snapshot.characterVersions ?? [],
     });
+    input.references.importAll(snapshot.referenceAssets ?? []);
     input.scenes.clear();
     for (const [projectId, scenes] of Object.entries(snapshot.scenesByProject ?? {})) {
       input.scenes.set(projectId, structuredClone(scenes));
@@ -59,6 +67,7 @@ export async function saveMemoryStudioSnapshot(input: {
   projects: MemoryProjectRepository;
   stories: MemoryStoryRepository;
   characters: MemoryCharacterRepository;
+  references: MemoryReferenceAssetRepository;
   scenes: Map<string, GenerationSceneRecord[]>;
 }): Promise<void> {
   const path = snapshotPath();
@@ -77,6 +86,8 @@ export async function saveMemoryStudioSnapshot(input: {
     storyVersions: storyExport.versions,
     characters: characterExport.characters,
     characterLinks: characterExport.projectLinks,
+    characterVersions: characterExport.versions,
+    referenceAssets: input.references.exportAll(),
     scenesByProject,
   };
   await writeFile(path, JSON.stringify(snapshot, null, 2), 'utf8');

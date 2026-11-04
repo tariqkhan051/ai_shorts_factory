@@ -5,6 +5,7 @@ import {
   createSampleScreenplay,
   importScreenplayFromText,
 } from '@ai-shorts-factory/chatgpt-import';
+import { syncCharactersFromScreenplay } from '@ai-shorts-factory/database';
 import { parseScreenplayV1 } from '@ai-shorts-factory/validation';
 import { ZodError } from 'zod';
 import { requireUser } from '@/lib/auth';
@@ -20,6 +21,8 @@ export type StoryActionState = {
   message?: string;
   errors?: string[];
   warnings?: string[];
+  nextHref?: string;
+  conflictCount?: number;
 };
 
 function formString(formData: FormData, key: string): string {
@@ -31,8 +34,11 @@ async function revalidateStory(projectId: string) {
   await persistMemoryStudioNow();
   revalidatePath('/');
   revalidatePath('/projects');
+  revalidatePath('/characters');
   revalidatePath(`/projects/${projectId}`);
   revalidatePath(`/projects/${projectId}/story`);
+  revalidatePath(`/projects/${projectId}/characters`);
+  revalidatePath(`/projects/${projectId}/flow-package`);
 }
 
 export async function markPromptReadyAction(projectId: string): Promise<void> {
@@ -69,11 +75,31 @@ export async function importScreenplayAction(
 
     const stories = await getStoryRepository();
     await stories.importScreenplay(user.id, projectId, imported.screenplay);
+    const characters = await getCharacterRepository();
+    const sync = await syncCharactersFromScreenplay(
+      characters,
+      user.id,
+      projectId,
+      imported.screenplay,
+    );
     await revalidateStory(projectId);
+    const warnings = [...(imported.warnings ?? [])];
+    if (sync.conflicts.length > 0) {
+      warnings.push(
+        `${sync.conflicts.length} library name conflict(s) — resolve reuse vs create on Character Review.`,
+      );
+    }
+    if (sync.missingReferences.length > 0) {
+      warnings.push(
+        `${sync.missingReferences.length} character(s) still need primary reference images.`,
+      );
+    }
     return {
       ok: true,
-      message: 'Screenplay imported',
-      warnings: imported.warnings,
+      message: 'Screenplay imported — review characters next',
+      warnings,
+      nextHref: `/projects/${projectId}/characters`,
+      conflictCount: sync.conflicts.length,
     };
   } catch (error) {
     return {
@@ -98,6 +124,8 @@ export async function loadSampleScreenplayAction(projectId: string): Promise<voi
   });
   const stories = await getStoryRepository();
   await stories.importScreenplay(user.id, projectId, sample);
+  const characters = await getCharacterRepository();
+  await syncCharactersFromScreenplay(characters, user.id, projectId, sample);
   await revalidateStory(projectId);
 }
 
@@ -157,6 +185,7 @@ export async function createCharacterAction(
       visual_identity: formString(formData, 'visual_identity'),
       clothing: formString(formData, 'clothing'),
       appearance_details: formString(formData, 'appearance_details'),
+      in_library: false,
     });
     await characters.linkToProject(user.id, projectId, character.id);
     await revalidateStory(projectId);
@@ -173,6 +202,9 @@ export async function deleteCharacterAction(projectId: string, characterId: stri
   const user = await requireUser();
   const characters = await getCharacterRepository();
   await characters.unlinkFromProject(user.id, projectId, characterId);
-  await characters.delete(user.id, characterId);
+  const character = await characters.getById(user.id, characterId);
+  if (character && !character.in_library) {
+    await characters.delete(user.id, characterId);
+  }
   await revalidateStory(projectId);
 }

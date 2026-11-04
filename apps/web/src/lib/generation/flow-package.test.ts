@@ -1,43 +1,40 @@
 import { describe, expect, it } from 'vitest';
 import { buildFlowGenerationPackage } from '@ai-shorts-factory/flow-adapter';
-import { buildProjectFlowGenerationPackage } from './flow-package.js';
-import type { ScreenplayV1 } from '@ai-shorts-factory/validation';
+import { createSampleScreenplay } from '@ai-shorts-factory/chatgpt-import';
+import type { CharacterRecord } from '@ai-shorts-factory/database';
+import { EMPTY_VISUAL_IDENTITY } from '@ai-shorts-factory/database';
+import {
+  buildProjectFlowGenerationPackage,
+  charactersMissingReferences,
+} from './flow-package.js';
 import type { GenerationSceneRecord } from '@ai-shorts-factory/workflow-engine';
 
-function sampleScreenplay(): ScreenplayV1 {
+function character(partial: Partial<CharacterRecord> & Pick<CharacterRecord, 'id' | 'name'>): CharacterRecord {
   return {
-    schema_version: '1.0.0',
-    title: 'Night Run',
-    category: 'cinematic',
-    visual_style: 'realistic_cinematic',
-    story_summary: 'Courier story',
-    hook: 'A package whispers',
-    characters: [
-      {
-        name: 'Rina',
-        description: 'Night courier',
-        visual_identity: 'short black hair, amber jacket',
-      },
-    ],
-    scenes: [1, 2, 3, 4, 5].map((n) => ({
-      scene_number: n,
-      title: `Scene ${n}`,
-      duration_seconds: 8,
-      visual_description: `Visual ${n}`,
-      flow_prompt: `Prompt ${n}`,
-      narration: '',
-      dialogue: '',
-      text_overlay: '',
-      transition_out: 'cut',
-    })),
-    ending: 'Dawn',
-    publishing_metadata: { title: 'Night Run', description: 'Short', tags: [] },
+    user_id: 'u1',
+    description: '',
+    visual_identity: '',
+    visual_identity_structured: EMPTY_VISUAL_IDENTITY,
+    clothing: '',
+    appearance_details: '',
+    screenplay_character_id: null,
+    role: '',
+    age_range: '',
+    continuity_rules: '',
+    reference_image_prompt: '',
+    voice_description: '',
+    dialogue_style: '',
+    in_library: false,
+    primary_reference_asset_id: null,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    ...partial,
   };
 }
 
 describe('buildProjectFlowGenerationPackage', () => {
-  it('builds prompts from screenplay without marking scenes generated', () => {
-    const screenplay = sampleScreenplay();
+  it('associates scene-specific character references and reports missing refs', () => {
+    const screenplay = createSampleScreenplay();
     const scenes: GenerationSceneRecord[] = screenplay.scenes.map((scene) => ({
       id: `s${scene.scene_number}`,
       projectId: 'p1',
@@ -50,19 +47,45 @@ describe('buildProjectFlowGenerationPackage', () => {
       updatedAt: '2026-01-01T00:00:00.000Z',
     }));
 
+    const stored = [
+      character({
+        id: 'c1',
+        name: 'Rina',
+        screenplay_character_id: 'rina',
+        visual_identity: 'amber jacket',
+        continuity_rules: 'Always amber jacket',
+        primary_reference_asset_id: 'ref1',
+      }),
+      character({
+        id: 'c2',
+        name: 'The Chip',
+        screenplay_character_id: 'the-chip',
+        visual_identity: 'cyan glow',
+      }),
+    ];
+
     const pkg = buildProjectFlowGenerationPackage({
       projectId: 'p1',
       projectName: 'Night Run',
       screenplay,
       scenes,
+      characters: stored,
       env: { FLOW_PROVIDER: 'google-flow-manual', NODE_ENV: 'test' },
     });
 
     expect(pkg.provider).toBe('google-flow-manual');
     expect(pkg.scenes).toHaveLength(5);
-    expect(pkg.scenes.every((scene) => scene.completionStatus === 'PROMPT_READY')).toBe(true);
-    expect(pkg.scenes[0]?.characterReferences[0]?.name).toBe('Rina');
-    expect(pkg.scenes.every((scene) => scene.flowPrompt.startsWith('Prompt'))).toBe(true);
+    expect(pkg.scenes[0]?.characterReferences.map((r) => r.characterId).sort()).toEqual([
+      'rina',
+      'the-chip',
+    ]);
+    expect(pkg.scenes[1]?.characterReferences.map((r) => r.characterId)).toEqual(['rina']);
+    expect(pkg.scenes[0]?.continuityPrompt).toMatch(/Always amber jacket/);
+    expect(pkg.scenes[0]?.combinedPrompt).toContain(pkg.scenes[0]!.flowPrompt);
+    expect(pkg.scenes[0]?.characterReferences.find((r) => r.characterId === 'the-chip')?.missingReference).toBe(
+      true,
+    );
+    expect(charactersMissingReferences(stored)).toHaveLength(1);
   });
 
   it('manifest export stays stable via package helper', () => {

@@ -21,6 +21,9 @@ export type PromptProjectContext = {
     visual_identity: string;
     clothing?: string;
     appearance_details?: string;
+    role?: string;
+    age_range?: string;
+    continuity_rules?: string;
   }>;
 };
 
@@ -34,7 +37,7 @@ export function buildChatGptProductionPrompt(project: PromptProjectContext): str
       ? project.characters
           .map(
             (c, index) =>
-              `${index + 1}. ${c.name}\n   Description: ${c.description}\n   Visual identity: ${c.visual_identity}\n   Clothing: ${c.clothing ?? 'n/a'}\n   Appearance: ${c.appearance_details ?? 'n/a'}`,
+              `${index + 1}. ${c.name}\n   Role: ${c.role ?? 'n/a'}\n   Age range: ${c.age_range ?? 'n/a'}\n   Description: ${c.description}\n   Visual identity: ${c.visual_identity}\n   Clothing: ${c.clothing ?? 'n/a'}\n   Appearance: ${c.appearance_details ?? 'n/a'}\n   Continuity: ${c.continuity_rules ?? 'n/a'}`,
           )
           .join('\n')
       : project.character_reference_notes?.trim() || 'Invent consistent characters as needed.';
@@ -70,6 +73,10 @@ HARD CONSTRAINTS
 - Include text overlay recommendations (optional per scene; do not force captions everywhere)
 - Include transition recommendations
 - Include suggested publishing title and description
+- Every identifiable character (including animals when continuity matters) MUST appear in the characters array with a stable character_id
+- Scenes MUST list character_ids for every character who appears
+- Reuse the same character_id across scenes — never duplicate the same person
+- Do NOT invent anonymous crowd extras as characters
 
 OUTPUT FORMAT
 Return ONLY valid JSON. No markdown fences. No commentary.
@@ -85,11 +92,25 @@ JSON SHAPE
   "hook": string,
   "characters": [
     {
+      "character_id": "stable-slug-id",
       "name": string,
+      "role": string,
+      "age_range": string,
       "description": string,
-      "visual_identity": string,
-      "clothing": string,
-      "appearance_details": string
+      "visual_identity": {
+        "face": string,
+        "hair": string,
+        "eyes": string,
+        "skin": string,
+        "clothing": string,
+        "body": string,
+        "distinctive_features": string,
+        "accessories": string
+      },
+      "reference_image_prompt": string,
+      "continuity_rules": string,
+      "voice_description": string,
+      "dialogue_style": string
     }
   ],
   "scenes": [
@@ -99,10 +120,15 @@ JSON SHAPE
       "duration_seconds": number,
       "visual_description": string,
       "flow_prompt": string,
+      "character_ids": ["stable-slug-id"],
       "narration": string,
       "dialogue": string,
       "text_overlay": string,
-      "transition_out": string
+      "transition_out": string,
+      "audio_direction": string,
+      "camera_direction": string,
+      "environment": string,
+      "lighting": string
     }
   ],
   "ending": string,
@@ -113,5 +139,6 @@ JSON SHAPE
   }
 }
 
-Scenes array MUST contain exactly ${BUSINESS_DEFAULTS.sceneCount} objects with scene_number values 1 through ${BUSINESS_DEFAULTS.sceneCount} in order.`;
+Scenes array MUST contain exactly ${BUSINESS_DEFAULTS.sceneCount} objects with scene_number values 1 through ${BUSINESS_DEFAULTS.sceneCount} in order.
+Every character_id listed in a scene MUST exist in the characters array.`;
 }

@@ -32,6 +32,13 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Playwright belongs on workers only — never bundle into the Next server graph.
   serverExternalPackages: ['playwright', 'playwright-core'],
+  // Manual Flow MP4 imports + character reference uploads use Server Actions.
+  // Align with DEFAULT_FLOW_IMPORT_MEDIA_CONTRACT.maxUploadBytes (256 MiB).
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '256mb',
+    },
+  },
   async headers() {
     return [
       {

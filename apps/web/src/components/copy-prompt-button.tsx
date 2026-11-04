@@ -2,7 +2,13 @@
 
 import { useState } from 'react';
 
-export function CopyPromptButton({ text }: { text: string }) {
+export function CopyPromptButton({
+  text,
+  label = 'Copy Prompt',
+}: {
+  text: string;
+  label?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function onCopy() {
@@ -15,9 +21,9 @@ export function CopyPromptButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={onCopy}
-      className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background hover:bg-accent/90"
+      className="rounded-md border border-border px-3 py-2 text-sm hover:bg-background"
     >
-      {copied ? 'Copied' : 'Copy Prompt'}
+      {copied ? 'Copied' : label}
     </button>
   );
 }

@@ -37,6 +37,7 @@ export default async function AssemblePage({ params }: PageProps) {
 
   const story = await stories.getByProject(user.id, id);
   let completedScenes = 0;
+  let verifiedRealScenes = 0;
   let gateMode: 'real' | 'mock' | 'undetermined' = 'undetermined';
   let gateMessage: string | null = null;
   if (story?.approved_at && story.current_version?.screenplay) {
@@ -47,19 +48,30 @@ export default async function AssemblePage({ params }: PageProps) {
         id,
         story.current_version.screenplay,
       );
+      verifiedRealScenes = scenes.filter(
+        (scene) =>
+          scene.state === 'REAL_GENERATED' || scene.state === 'READY_FOR_ASSEMBLY',
+      ).length;
       const gate = evaluateAssemblyGate(scenes);
       if (gate.ok) {
         completedScenes = gate.scenes.length;
         gateMode = gate.mode;
       } else {
         gateMode = gate.mode;
-        gateMessage = gate.message;
         completedScenes = scenes.filter(
           (scene) =>
             scene.state === 'COMPLETED' ||
             scene.state === 'REAL_GENERATED' ||
             scene.state === 'READY_FOR_ASSEMBLY',
         ).length;
+        // Prompt-ready Flow scenes are not an assembly failure — operator still needs uploads.
+        if (verifiedRealScenes < BUSINESS_DEFAULTS.sceneCount && completedScenes === 0) {
+          gateMessage = `Upload and verify ${BUSINESS_DEFAULTS.sceneCount} real Flow MP4s on the Flow Package page first (${verifiedRealScenes}/${BUSINESS_DEFAULTS.sceneCount} ready). Prompt-ready / awaiting-generation scenes are not assembly assets.`;
+        } else if (verifiedRealScenes < BUSINESS_DEFAULTS.sceneCount) {
+          gateMessage = `Need ${BUSINESS_DEFAULTS.sceneCount} verified REAL_GENERATED scenes before assembly (${verifiedRealScenes}/${BUSINESS_DEFAULTS.sceneCount} ready). Open Flow Package to upload remaining MP4s.`;
+        } else {
+          gateMessage = gate.message;
+        }
       }
     } catch {
       completedScenes = 0;
@@ -107,9 +119,15 @@ export default async function AssemblePage({ params }: PageProps) {
           </p>
         </div>
         {gateMessage ? (
-          <pre className="mt-3 whitespace-pre-wrap rounded-md border border-danger/30 bg-danger/5 p-3 text-xs text-danger">
-            {gateMessage}
-          </pre>
+          <div className="mt-3 space-y-3 rounded-md border border-warning/40 bg-warning/5 p-3 text-sm text-muted">
+            <p className="whitespace-pre-wrap text-foreground">{gateMessage}</p>
+            <Link
+              href={`/projects/${project.id}/flow-package`}
+              className="inline-flex rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-background hover:bg-accent/90"
+            >
+              Open Flow Package
+            </Link>
+          </div>
         ) : null}
         <div className="mt-4 grid grid-cols-5 gap-2">
           {Array.from({ length: BUSINESS_DEFAULTS.sceneCount }, (_, index) => {
@@ -262,7 +280,8 @@ export default async function AssemblePage({ params }: PageProps) {
           </form>
         ) : !isComplete ? (
           <p className="mt-3 text-sm text-muted">
-            Finish mock generation first so five scenes are completed and the project can assemble.
+            Assembly unlocks after five verified scene videos are ready (real Flow uploads preferred;
+            mock COMPLETED scenes only for the synthetic/mock path).
           </p>
         ) : null}
       </section>

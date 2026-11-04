@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState } from 'react';
 import { importScreenplayAction, type StoryActionState } from '@/app/projects/[id]/story/actions';
 
@@ -43,6 +44,16 @@ export function StoryImportForm({ projectId }: { projectId: string }) {
                 <li key={warning}>{warning}</li>
               ))}
             </ul>
+          ) : null}
+          {state.ok && state.nextHref ? (
+            <p className="mt-3">
+              <Link
+                href={state.nextHref}
+                className="inline-flex rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-background hover:bg-accent/90"
+              >
+                Review characters →
+              </Link>
+            </p>
           ) : null}
         </div>
       )}

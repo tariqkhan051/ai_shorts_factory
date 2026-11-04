@@ -5,6 +5,7 @@ import { CopyPromptButton } from '@/components/copy-prompt-button';
 import { StoryImportForm } from '@/components/story-import-form';
 import { ScreenplayEditor } from '@/components/screenplay-editor';
 import { CharacterForm } from '@/components/character-form';
+import { ProjectWorkflowProgress } from '@/components/project-workflow-progress';
 import {
   approveStoryAction,
   deleteCharacterAction,
@@ -16,8 +17,10 @@ import { requireUser } from '@/lib/auth';
 import {
   getCharacterRepository,
   getProjectRepository,
+  getSceneMap,
   getStoryRepository,
 } from '@/lib/projects/repository';
+import { buildProjectDashboard } from '@/lib/projects/workflow-progress';
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -56,6 +59,9 @@ export default async function StoryStudioPage({ params }: PageProps) {
       visual_identity: character.visual_identity,
       clothing: character.clothing,
       appearance_details: character.appearance_details,
+      role: character.role,
+      age_range: character.age_range,
+      continuity_rules: character.continuity_rules,
     })),
   });
 
@@ -63,7 +69,15 @@ export default async function StoryStudioPage({ params }: PageProps) {
   const canApprove =
     Boolean(screenplay) &&
     !story?.approved_at &&
+    Boolean(story?.characters_reviewed_at) &&
     (project.workflow_state === 'STORY_APPROVAL' || project.workflow_state === 'STORY_VALIDATION');
+
+  const dashboard = buildProjectDashboard({
+    project,
+    story,
+    characters: linkedCharacters,
+    scenes: getSceneMap().get(project.id) ?? [],
+  });
 
   return (
     <div className="space-y-8">
@@ -73,14 +87,29 @@ export default async function StoryStudioPage({ params }: PageProps) {
         </Link>
         <h1 className="text-3xl font-semibold tracking-tight">Story Studio</h1>
         <p className="max-w-3xl text-muted">
-          Generate a ChatGPT production prompt, paste the JSON response, edit the five-scene
-          screenplay, manage characters, then approve. No ChatGPT API is used.
+          Generate a ChatGPT production prompt, paste the JSON response, review characters and
+          references, then approve. No ChatGPT API is used.
         </p>
         <p className="font-mono text-xs uppercase tracking-wide text-accent">
           {project.workflow_state}
           {story?.approved_at ? ' · approved' : ''}
+          {story?.characters_reviewed_at ? ' · characters reviewed' : ''}
         </p>
       </div>
+
+      <ProjectWorkflowProgress stages={dashboard.stages} />
+
+      {screenplay && !story?.characters_reviewed_at ? (
+        <div className="rounded-lg border border-accent/40 bg-accent/5 px-4 py-3 text-sm">
+          Screenplay imported. Next:{' '}
+          <Link
+            href={`/projects/${project.id}/characters`}
+            className="font-medium text-accent hover:underline"
+          >
+            Review characters & upload references →
+          </Link>
+        </div>
+      ) : null}
 
       <section className="space-y-4 rounded-lg border border-border bg-background-elevated/50 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -123,15 +152,26 @@ export default async function StoryStudioPage({ params }: PageProps) {
           </form>
         </div>
         <p className="text-sm text-muted">
-          Invalid imports are rejected and do not destroy a previously saved screenplay.
+          Invalid imports are rejected and do not destroy a previously saved screenplay. Successful
+          imports create character records automatically.
         </p>
         <StoryImportForm projectId={project.id} />
       </section>
 
       <section className="space-y-4 rounded-lg border border-border bg-background-elevated/50 p-5">
-        <h2 className="text-lg font-medium">3. Characters</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-medium">3. Characters</h2>
+          <Link
+            href={`/projects/${project.id}/characters`}
+            className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-background hover:bg-accent/90"
+          >
+            Open Character Review
+          </Link>
+        </div>
         {linkedCharacters.length === 0 ? (
-          <p className="text-sm text-muted">No linked characters yet.</p>
+          <p className="text-sm text-muted">
+            No linked characters yet — import a screenplay or add one below.
+          </p>
         ) : (
           <ul className="divide-y divide-border rounded-md border border-border">
             {linkedCharacters.map((character) => (
@@ -142,6 +182,11 @@ export default async function StoryStudioPage({ params }: PageProps) {
                 <div>
                   <p className="font-medium">{character.name}</p>
                   <p className="text-sm text-muted">{character.visual_identity}</p>
+                  <p className="font-mono text-xs text-muted">
+                    {character.primary_reference_asset_id
+                      ? 'reference-ready'
+                      : 'missing primary reference'}
+                  </p>
                 </div>
                 <form action={deleteCharacterAction.bind(null, project.id, character.id)}>
                   <button type="submit" className="text-sm text-danger hover:underline">
@@ -168,13 +213,20 @@ export default async function StoryStudioPage({ params }: PageProps) {
                   Approve story
                 </button>
               </form>
+            ) : screenplay && !story?.characters_reviewed_at ? (
+              <Link
+                href={`/projects/${project.id}/characters`}
+                className="rounded-md border border-border px-4 py-2 text-sm hover:bg-background"
+              >
+                Mark characters reviewed first
+              </Link>
             ) : null}
             {story?.approved_at ? (
               <Link
-                href={`/projects/${project.id}/generate`}
+                href={`/projects/${project.id}/flow-package`}
                 className="rounded-md border border-border px-4 py-2 text-sm hover:bg-background"
               >
-                Continue to generation
+                Open Flow Package
               </Link>
             ) : null}
           </div>
@@ -189,7 +241,8 @@ export default async function StoryStudioPage({ params }: PageProps) {
               <p>
                 <span className="text-foreground">{screenplay.title}</span> ·{' '}
                 {screenplay.scenes.length} scenes ·{' '}
-                {screenplay.scenes.reduce((sum, scene) => sum + scene.duration_seconds, 0)}s total
+                {screenplay.scenes.reduce((sum, scene) => sum + scene.duration_seconds, 0)}s total ·{' '}
+                {screenplay.characters.length} characters
               </p>
               <p className="mt-1">{screenplay.publishing_metadata.title}</p>
             </div>

@@ -59,7 +59,7 @@ export {
   hashSpendConfirmationToken,
   LIVE_SPEND_CONFIRM_PHRASE,
 } from './spend-confirmation.js';
-export { loadFlowUiRecipeFromFile, loadFlowUiRecipeFromEnv } from './load-recipe.js';
+export { loadFlowUiRecipeFromEnv } from './load-recipe-env.js';
 export { describeFlowProviderStatus } from './flow-status.js';
 export {
   buildFlowGenerationPackage,

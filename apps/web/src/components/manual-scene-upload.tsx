@@ -77,8 +77,9 @@ export function ManualSceneUpload({ projectId, sceneId, sceneNumber, disabled }:
           dragOver ? 'border-accent bg-accent/5' : 'border-border'
         } ${disabled ? 'opacity-50' : ''}`}
       >
-        <p className="text-muted">
-          Drag & drop scene {sceneNumber} MP4 here, or{' '}
+        <p className="font-medium">Upload MP4 for scene {sceneNumber}</p>
+        <p className="mt-1 text-muted">
+          Drag & drop the downloaded Flow MP4 here, or{' '}
           <button
             type="button"
             className="text-accent underline"

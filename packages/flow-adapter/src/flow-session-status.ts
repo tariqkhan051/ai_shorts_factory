@@ -2,7 +2,7 @@ import type { FlowSessionStatus } from '@ai-shorts-factory/shared-types';
 import { isLiveFlowProviderName, readFlowLiveConfig, type FlowLiveConfig } from './flow-live-config.js';
 import { readFlowLiveGateEnv } from './flow-live-gates.js';
 import { isRecipeVerified } from './flow-ui-recipe.js';
-import { loadFlowUiRecipeFromEnv } from './load-recipe.js';
+import { loadFlowUiRecipeFromEnv } from './load-recipe-env.js';
 
 export type FlowSessionStatusReport = {
   status: FlowSessionStatus;

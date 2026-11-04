@@ -8,6 +8,7 @@ import { SignOutButton } from '@/components/sign-out-button';
 const navItems = [
   { href: '/', label: 'Dashboard' },
   { href: '/projects', label: 'Projects' },
+  { href: '/characters', label: 'Characters' },
   { href: '/library', label: 'Library' },
   { href: '/settings', label: 'Settings' },
 ] as const;

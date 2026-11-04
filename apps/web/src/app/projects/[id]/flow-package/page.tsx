@@ -4,18 +4,27 @@ import { isSceneReadyForAssembly } from '@ai-shorts-factory/flow-adapter';
 import { BUSINESS_DEFAULTS } from '@ai-shorts-factory/shared-types';
 import { prepareFlowPackageAction } from '@/app/projects/[id]/flow-package/actions';
 import { FlowPackageSceneCard } from '@/components/flow-package-scene-card';
+import { ProjectWorkflowProgress } from '@/components/project-workflow-progress';
 import { requireUser } from '@/lib/auth';
 import {
   buildProjectFlowGenerationPackage,
   projectCreditSummary,
+  type CharacterReferenceContext,
 } from '@/lib/generation/flow-package';
-import { prepareScenesPromptReady } from '@/lib/generation/manual-import';
+import {
+  ensureManualAssemblyReadyIfComplete,
+  prepareScenesPromptReady,
+} from '@/lib/generation/manual-import';
 import { getCreditLedger } from '@/lib/generation/runtime';
 import {
   getCharacterRepository,
   getProjectRepository,
+  getReferenceAssetRepository,
+  getSceneMap,
   getStoryRepository,
 } from '@/lib/projects/repository';
+import { buildProjectDashboard } from '@/lib/projects/workflow-progress';
+import { getObjectStorage } from '@/lib/storage';
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -27,36 +36,82 @@ export default async function FlowPackagePage({ params }: PageProps) {
   const projects = await getProjectRepository();
   const stories = await getStoryRepository();
   const characters = await getCharacterRepository();
+  const references = await getReferenceAssetRepository();
 
-  const project = await projects.getById(user.id, id);
+  let project = await projects.getById(user.id, id);
   if (!project) {
     notFound();
   }
 
   const story = await stories.getByProject(user.id, id);
+  const characterRows = await characters.listByProject(user.id, id);
   const approved = Boolean(story?.approved_at && story.current_version?.screenplay);
   const credits = await getCreditLedger().getBalances(user.id);
 
   let pkg = null as ReturnType<typeof buildProjectFlowGenerationPackage> | null;
   let error: string | null = null;
+  let scenes = getSceneMap().get(id) ?? [];
 
   if (approved && story?.current_version?.screenplay) {
     try {
-      const scenes = await prepareScenesPromptReady(user.id, id);
-      const characterRows = await characters.listByProject(user.id, id);
+      scenes = await prepareScenesPromptReady(user.id, id);
+      scenes = await ensureManualAssemblyReadyIfComplete(user.id, id);
+      project = (await projects.getById(user.id, id)) ?? project;
+      const referenceContext = new Map<string, CharacterReferenceContext>();
+      await Promise.all(
+        characterRows.map(async (character) => {
+          const assets = await references.listByCharacter(user.id, character.id);
+          const primary = assets.find((asset) => asset.is_primary) ?? assets[0] ?? null;
+          const additional = assets.filter((asset) => asset.id !== primary?.id);
+          referenceContext.set(character.id, {
+            character,
+            primary,
+            additional,
+            previewUrl: primary ? `/api/references/${primary.id}` : undefined,
+            additionalPreviewUrls: additional.map((asset) => `/api/references/${asset.id}`),
+          });
+        }),
+      );
+
       pkg = buildProjectFlowGenerationPackage({
         projectId: id,
         projectName: project.name,
         screenplay: story.current_version.screenplay,
         scenes,
         characters: characterRows,
+        referenceContext,
       });
+
+      const storage = getObjectStorage();
+      for (const task of pkg.scenes) {
+        const scene = scenes.find((row) => row.sceneNumber === task.sceneNumber);
+        if (!scene?.assetStorageKey) continue;
+        try {
+          const url = await storage.createSignedDownloadUrl(scene.assetStorageKey, {
+            expiresInSeconds: 60 * 30,
+          });
+          task.assetPreviewUrl =
+            url.startsWith('http') || url.startsWith('/')
+              ? url
+              : `/api/projects/${id}/scenes/${scene.id}/video`;
+        } catch {
+          task.assetPreviewUrl = `/api/projects/${id}/scenes/${scene.id}/video`;
+        }
+      }
     } catch (err) {
       error = err instanceof Error ? err.message : 'Unable to build Flow package';
     }
   }
 
-  const readyCount = pkg?.scenes.filter((scene) => isSceneReadyForAssembly(scene.completionStatus)).length ?? 0;
+  const dashboard = buildProjectDashboard({
+    project,
+    story,
+    characters: characterRows,
+    scenes,
+  });
+
+  const readyCount =
+    pkg?.scenes.filter((scene) => isSceneReadyForAssembly(scene.completionStatus)).length ?? 0;
   const creditSummary = pkg
     ? projectCreditSummary(
         pkg.scenes.map((scene) => ({
@@ -78,31 +133,46 @@ export default async function FlowPackagePage({ params }: PageProps) {
   return (
     <div className="space-y-8">
       <div className="space-y-2">
-        <Link href={`/projects/${project.id}/generate`} className="text-sm text-muted hover:text-foreground">
-          ← Scene generation
+        <Link href={`/projects/${project.id}`} className="text-sm text-muted hover:text-foreground">
+          ← {project.name}
         </Link>
         <h1 className="text-3xl font-semibold tracking-tight">Flow Generation Package</h1>
         <p className="max-w-3xl text-muted">
           Human-in-the-loop Google Flow workflow. Open normal Chrome yourself, paste prompts,
-          generate manually, then upload MP4s here. Copying a prompt never marks a scene generated.
+          select Ingredients from character references, generate manually, then upload MP4s here.
+          Edit a scene prompt here if Flow rejects it, then copy again. Copying never marks a
+          scene generated.
         </p>
         <p className="font-mono text-xs uppercase tracking-wide text-accent">
           {project.workflow_state} · {readyCount}/{BUSINESS_DEFAULTS.sceneCount} verified
         </p>
       </div>
 
+      <ProjectWorkflowProgress stages={dashboard.stages} />
+
       {!approved ? (
         <section className="rounded-lg border border-warning/40 bg-warning/5 p-5">
           <h2 className="text-lg font-medium">Story approval required</h2>
           <p className="mt-2 text-sm text-muted">
             Approve a five-scene screenplay before preparing Flow prompts.
+            {!story?.characters_reviewed_at
+              ? ' Mark characters reviewed first, then approve in Story Studio.'
+              : ''}
           </p>
-          <Link
-            href={`/projects/${project.id}/story`}
-            className="mt-4 inline-flex rounded-md bg-accent px-4 py-2 text-sm font-medium text-background hover:bg-accent/90"
-          >
-            Open Story Studio
-          </Link>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href={`/projects/${project.id}/characters`}
+              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-background"
+            >
+              Manage characters
+            </Link>
+            <Link
+              href={`/projects/${project.id}/story`}
+              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background hover:bg-accent/90"
+            >
+              Open Story Studio
+            </Link>
+          </div>
         </section>
       ) : (
         <>

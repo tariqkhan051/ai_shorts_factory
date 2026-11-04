@@ -76,10 +76,49 @@ export class MemoryStoryRepository implements StoryRepository {
     return saved;
   }
 
+  async patchCurrentScreenplayPreservingApproval(
+    userId: string,
+    projectId: string,
+    screenplay: ScreenplayV1,
+  ): Promise<StoryWithCurrentVersion> {
+    await this.requireProject(userId, projectId);
+    const current = await this.getByProject(userId, projectId);
+    if (!current?.current_version) {
+      throw new Error('Cannot patch screenplay: no imported screenplay');
+    }
+
+    const timestamp = nowIso();
+    const version: StoryVersionRecord = {
+      id: randomUUID(),
+      story_id: current.id,
+      schema_version: screenplay.schema_version,
+      screenplay,
+      created_by: userId,
+      created_at: timestamp,
+    };
+    this.versions.set(version.id, version);
+
+    const nextStory: StoryRecord = {
+      id: current.id,
+      project_id: current.project_id,
+      current_version_id: version.id,
+      title: screenplay.title,
+      approved_at: current.approved_at,
+      characters_reviewed_at: current.characters_reviewed_at,
+      created_at: current.created_at,
+      updated_at: timestamp,
+    };
+    this.storiesByProject.set(projectId, nextStory);
+    return structuredClone({ ...nextStory, current_version: version });
+  }
+
   async approveStory(userId: string, projectId: string): Promise<StoryWithCurrentVersion> {
     const current = await this.getByProject(userId, projectId);
     if (!current?.current_version) {
       throw new Error('Cannot approve: no imported screenplay');
+    }
+    if (!current.characters_reviewed_at) {
+      throw new Error('Cannot approve: mark characters as reviewed first');
     }
     const timestamp = nowIso();
     const approved: StoryRecord = {
@@ -91,6 +130,27 @@ export class MemoryStoryRepository implements StoryRepository {
     await this.projects.setWorkflowState(userId, projectId, 'SCENE_PREPARATION');
     return structuredClone({
       ...approved,
+      current_version: current.current_version,
+    });
+  }
+
+  async markCharactersReviewed(
+    userId: string,
+    projectId: string,
+  ): Promise<StoryWithCurrentVersion> {
+    const current = await this.getByProject(userId, projectId);
+    if (!current?.current_version) {
+      throw new Error('Cannot mark characters reviewed: no imported screenplay');
+    }
+    const timestamp = nowIso();
+    const next: StoryRecord = {
+      ...current,
+      characters_reviewed_at: timestamp,
+      updated_at: timestamp,
+    };
+    this.storiesByProject.set(projectId, next);
+    return structuredClone({
+      ...next,
       current_version: current.current_version,
     });
   }
@@ -114,7 +174,10 @@ export class MemoryStoryRepository implements StoryRepository {
       this.versions.set(version.id, structuredClone(version));
     }
     for (const story of input.stories) {
-      this.storiesByProject.set(story.project_id, structuredClone(story));
+      this.storiesByProject.set(story.project_id, {
+        ...structuredClone(story),
+        characters_reviewed_at: story.characters_reviewed_at ?? null,
+      });
     }
   }
 
@@ -152,6 +215,7 @@ export class MemoryStoryRepository implements StoryRepository {
         current_version_id: null,
         title: screenplay.title,
         approved_at: null,
+        characters_reviewed_at: null,
         created_at: timestamp,
         updated_at: timestamp,
       };
@@ -172,6 +236,7 @@ export class MemoryStoryRepository implements StoryRepository {
       title: screenplay.title,
       current_version_id: version.id,
       approved_at: null,
+      characters_reviewed_at: null,
       updated_at: timestamp,
     };
     this.storiesByProject.set(projectId, nextStory);

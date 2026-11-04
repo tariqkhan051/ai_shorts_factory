@@ -14,7 +14,8 @@ import {
   validateBytesAgainstContract,
   validateProbeAgainstContract,
 } from '@ai-shorts-factory/media-engine';
-import { BUSINESS_DEFAULTS, type SceneState } from '@ai-shorts-factory/shared-types';
+import { planTransitionPath } from '@ai-shorts-factory/database';
+import { BUSINESS_DEFAULTS, type SceneState, type WorkflowState } from '@ai-shorts-factory/shared-types';
 import type { GenerationSceneRecord } from '@ai-shorts-factory/workflow-engine';
 import { findCrossProjectDuplicate, registerOrReuseAsset } from '@/lib/generation/asset-index';
 import { evaluateAssemblyGate } from '@/lib/generation/assembly-gate';
@@ -74,6 +75,59 @@ export async function markSceneAwaitingManualGeneration(
   });
 }
 
+/**
+ * Operator fix for Flow-rejected prompts.
+ * Updates the generation scene and syncs the matching screenplay scene.flow_prompt
+ * without clearing story approval or regressing project workflow.
+ */
+export async function updateSceneFlowPrompt(
+  userId: string,
+  projectId: string,
+  sceneId: string,
+  flowPrompt: string,
+): Promise<GenerationSceneRecord> {
+  const trimmed = flowPrompt.trim();
+  if (!trimmed) {
+    throw new Error('Scene prompt cannot be empty');
+  }
+  const store = await createStore();
+  const snapshot = await store.getProjectSnapshot(userId, projectId);
+  const scene = snapshot.scenes.find((item) => item.id === sceneId);
+  if (!scene) {
+    throw new Error('Scene not found');
+  }
+
+  const updated = await store.updateScene(userId, projectId, sceneId, {
+    flowPrompt: trimmed,
+    errorMessage: undefined,
+  });
+
+  const stories = await getStoryRepository();
+  const story = await stories.getByProject(userId, projectId);
+  const screenplay = story?.current_version?.screenplay;
+  if (!screenplay) {
+    throw new Error('Imported screenplay required to sync scene prompt');
+  }
+
+  const sceneIndex = screenplay.scenes.findIndex(
+    (item) => item.scene_number === scene.sceneNumber,
+  );
+  if (sceneIndex < 0) {
+    throw new Error(`Screenplay has no scene ${scene.sceneNumber} to sync`);
+  }
+
+  const nextScreenplay = {
+    ...screenplay,
+    scenes: screenplay.scenes.map((item, index) =>
+      index === sceneIndex ? { ...item, flow_prompt: trimmed } : item,
+    ),
+  };
+
+  await stories.patchCurrentScreenplayPreservingApproval(userId, projectId, nextScreenplay);
+  await persistMemoryStudioNow();
+  return updated;
+}
+
 export async function prepareScenesPromptReady(
   userId: string,
   projectId: string,
@@ -99,14 +153,100 @@ export async function prepareScenesPromptReady(
     }
   }
 
-  if (
-    snapshot.workflowState === 'SCENE_PREPARATION' ||
-    snapshot.workflowState === 'READY_FOR_GENERATION'
-  ) {
-    await store.setProjectWorkflowState(userId, projectId, 'GENERATING_SCENES');
-  }
+  // Manual Flow package preparation must walk the legal project workflow path —
+  // never jump SCENE_PREPARATION → GENERATING_SCENES directly.
+  await advanceManualGenerationWorkflow(store, userId, projectId, snapshot.workflowState);
 
   return updated;
+}
+
+async function advanceManualGenerationWorkflow(
+  store: AppGenerationStore,
+  userId: string,
+  projectId: string,
+  from: WorkflowState,
+): Promise<void> {
+  if (
+    from === 'GENERATING_SCENES' ||
+    from === 'VERIFYING_SCENES' ||
+    from === 'ASSEMBLY_READY' ||
+    from === 'ASSEMBLING' ||
+    from === 'QUALITY_CHECK' ||
+    from === 'COMPLETED'
+  ) {
+    return;
+  }
+
+  const path = planTransitionPath(from, [
+    'READY_FOR_GENERATION',
+    'CREDIT_RESERVED',
+    'GENERATING_SCENES',
+  ]);
+  for (const state of path) {
+    await store.setProjectWorkflowState(userId, projectId, state);
+  }
+}
+
+/** Legal hop after all five scenes verify: GENERATING_SCENES → VERIFYING_SCENES → ASSEMBLY_READY. */
+async function advanceToManualAssemblyReady(
+  store: AppGenerationStore,
+  userId: string,
+  projectId: string,
+  from: WorkflowState,
+): Promise<void> {
+  if (from === 'ASSEMBLY_READY') {
+    return;
+  }
+
+  if (from === 'GENERATING_SCENES' || from === 'VERIFYING_SCENES') {
+    const path = planTransitionPath(from, ['VERIFYING_SCENES', 'ASSEMBLY_READY']);
+    for (const state of path) {
+      await store.setProjectWorkflowState(userId, projectId, state);
+    }
+    return;
+  }
+
+  // PAUSED / FAILED / NEEDS_HUMAN_INTERVENTION (and COMPLETED re-entry) may jump directly.
+  const path = planTransitionPath(from, ['ASSEMBLY_READY']);
+  for (const state of path) {
+    await store.setProjectWorkflowState(userId, projectId, state);
+  }
+}
+
+/**
+ * Heal projects stuck after a prior illegal GENERATING_SCENES → ASSEMBLY_READY attempt:
+ * if all five verified real assets are present, mark READY_FOR_ASSEMBLY and advance workflow.
+ */
+export async function ensureManualAssemblyReadyIfComplete(
+  userId: string,
+  projectId: string,
+): Promise<GenerationSceneRecord[]> {
+  const store = await createStore();
+  const snapshot = await store.getProjectSnapshot(userId, projectId);
+  const gate = evaluateAssemblyGate(snapshot.scenes);
+  if (!(gate.ok && gate.mode === 'real')) {
+    return snapshot.scenes;
+  }
+
+  for (const item of snapshot.scenes) {
+    if (item.state === 'REAL_GENERATED') {
+      await store.updateScene(userId, projectId, item.id, {
+        state: 'READY_FOR_ASSEMBLY',
+      });
+    }
+  }
+
+  if (
+    snapshot.workflowState !== 'ASSEMBLY_READY' &&
+    snapshot.workflowState !== 'ASSEMBLING' &&
+    snapshot.workflowState !== 'QUALITY_CHECK' &&
+    snapshot.workflowState !== 'COMPLETED'
+  ) {
+    await advanceToManualAssemblyReady(store, userId, projectId, snapshot.workflowState);
+  }
+
+  await persistMemoryStudioNow();
+  return (await store.getProjectSnapshot(userId, projectId)).scenes;
 }
 
 export async function importManualSceneVideo(input: {
@@ -380,20 +520,38 @@ async function importManualSceneVideoLocked(input: {
       });
     }
 
-    const refreshed = await store.getProjectSnapshot(input.userId, input.projectId);
-    const gate = evaluateAssemblyGate(refreshed.scenes);
-    if (gate.ok && gate.mode === 'real') {
-      for (const item of refreshed.scenes) {
-        if (item.state === 'REAL_GENERATED') {
-          await store.updateScene(input.userId, input.projectId, item.id, {
-            state: 'READY_FOR_ASSEMBLY',
-          });
-        }
-      }
-      await store.setProjectWorkflowState(input.userId, input.projectId, 'ASSEMBLY_READY');
-    }
-
     await persistMemoryStudioNow();
+
+    // Advance project workflow after the scene asset is durable. Failures here must not
+    // roll a verified REAL_GENERATED scene back to VERIFICATION_FAILED.
+    try {
+      const refreshed = await store.getProjectSnapshot(input.userId, input.projectId);
+      const gate = evaluateAssemblyGate(refreshed.scenes);
+      if (gate.ok && gate.mode === 'real') {
+        for (const item of refreshed.scenes) {
+          if (item.state === 'REAL_GENERATED') {
+            await store.updateScene(input.userId, input.projectId, item.id, {
+              state: 'READY_FOR_ASSEMBLY',
+            });
+          }
+        }
+        await advanceToManualAssemblyReady(
+          store,
+          input.userId,
+          input.projectId,
+          refreshed.workflowState,
+        );
+        await persistMemoryStudioNow();
+      }
+    } catch (workflowError) {
+      const message =
+        workflowError instanceof Error ? workflowError.message : 'Workflow advance failed';
+      return {
+        ok: false,
+        reason: `Scene ${scene.sceneNumber} verified and stored, but project workflow did not reach ASSEMBLY_READY: ${message}`,
+        scene: updated,
+      };
+    }
 
     return {
       ok: true,

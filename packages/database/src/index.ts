@@ -21,10 +21,17 @@ export type {
   StoryVersionRecord,
   StoryWithCurrentVersion,
   CharacterRecord,
+  CharacterVersionRecord,
+  CharacterVisualIdentity,
   CreateCharacterInput,
   UpdateCharacterInput,
+  ReferenceAssetRecord,
+  CreateReferenceAssetInput,
+  LibraryNameConflict,
+  SyncCharactersResult,
   StoryRepository,
   CharacterRepository,
+  ReferenceAssetRepository,
 } from './story-types.js';
 
 export { MemoryProjectRepository } from './memory-project-repository.js';
@@ -33,6 +40,18 @@ export { MemoryStoryRepository } from './memory-story-repository.js';
 export { SupabaseStoryRepository } from './supabase-story-repository.js';
 export { MemoryCharacterRepository } from './memory-character-repository.js';
 export { SupabaseCharacterRepository } from './supabase-character-repository.js';
+export { MemoryReferenceAssetRepository } from './memory-reference-asset-repository.js';
+export { SupabaseReferenceAssetRepository } from './supabase-reference-asset-repository.js';
+export {
+  syncCharactersFromScreenplay,
+  scenesForCharacter,
+} from './sync-characters-from-screenplay.js';
+export {
+  flattenVisualIdentity,
+  mergeVisualIdentity,
+  normalizeStoredVisualIdentity,
+  EMPTY_VISUAL_IDENTITY,
+} from './character-visual.js';
 export {
   readDatabaseEnv,
   isSupabaseConfigured,

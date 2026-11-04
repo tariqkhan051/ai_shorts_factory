@@ -6,6 +6,7 @@ import {
   importManualSceneVideo,
   markSceneAwaitingManualGeneration,
   prepareScenesPromptReady,
+  updateSceneFlowPrompt,
 } from '@/lib/generation/manual-import';
 
 export async function prepareFlowPackageAction(projectId: string) {
@@ -20,6 +21,23 @@ export async function markAwaitingManualGenerationAction(projectId: string, scen
   await markSceneAwaitingManualGeneration(user.id, projectId, sceneId);
   revalidatePath(`/projects/${projectId}/flow-package`);
   revalidatePath(`/projects/${projectId}/generate`);
+}
+
+export async function updateSceneFlowPromptAction(formData: FormData) {
+  const user = await requireUser();
+  const projectId = String(formData.get('projectId') ?? '');
+  const sceneId = String(formData.get('sceneId') ?? '');
+  const flowPrompt = String(formData.get('flowPrompt') ?? '');
+
+  if (!projectId || !sceneId) {
+    throw new Error('projectId and sceneId are required');
+  }
+
+  await updateSceneFlowPrompt(user.id, projectId, sceneId, flowPrompt);
+  revalidatePath(`/projects/${projectId}/flow-package`);
+  revalidatePath(`/projects/${projectId}/generate`);
+  revalidatePath(`/projects/${projectId}/story`);
+  revalidatePath(`/projects/${projectId}`);
 }
 
 export async function uploadManualSceneVideoAction(formData: FormData) {

@@ -15,6 +15,7 @@ function validScreenplay() {
     hook: 'Rain hits neon as a package starts whispering.',
     characters: [
       {
+        character_id: 'rina',
         name: 'Rina',
         description: 'Courier',
         visual_identity: 'Short black hair, amber jacket',
@@ -26,6 +27,7 @@ function validScreenplay() {
       duration_seconds: 6,
       visual_description: `Visual for scene ${n}`,
       flow_prompt: `Flow prompt for scene ${n}`,
+      character_ids: ['rina'],
       narration: '',
       dialogue: '',
       text_overlay: '',
@@ -44,6 +46,9 @@ describe('screenplaySchemaV1', () => {
   it('accepts a valid five-scene screenplay', () => {
     const result = safeParseScreenplayV1(validScreenplay());
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.characters[0]?.visual_identity.distinctive_features).toMatch(/amber/i);
+    }
   });
 
   it('rejects fewer than five scenes', () => {
@@ -60,5 +65,39 @@ describe('screenplaySchemaV1', () => {
     const result = safeParseScreenplayV1(payload);
     expect(result.success).toBe(false);
     expect(formatScreenplayErrors(result).some((m) => m.includes('numbered'))).toBe(true);
+  });
+
+  it('rejects invalid character_ids in scenes', () => {
+    const payload = validScreenplay();
+    payload.scenes[0] = {
+      ...payload.scenes[0]!,
+      character_ids: ['unknown-person'],
+    };
+    const result = safeParseScreenplayV1(payload);
+    expect(result.success).toBe(false);
+    expect(formatScreenplayErrors(result).join(' ')).toMatch(/unknown character_id/i);
+  });
+
+  it('rejects duplicate character_id values', () => {
+    const payload = validScreenplay();
+    payload.characters.push({
+      character_id: 'rina',
+      name: 'Rina Clone',
+      description: 'Duplicate',
+      visual_identity: 'Same person',
+    });
+    const result = safeParseScreenplayV1(payload);
+    expect(result.success).toBe(false);
+    expect(formatScreenplayErrors(result).join(' ')).toMatch(/Duplicate character_id/i);
+  });
+
+  it('accepts legacy screenplay JSON without character_ids', () => {
+    const payload = validScreenplay();
+    for (const scene of payload.scenes) {
+      delete (scene as { character_ids?: string[] }).character_ids;
+    }
+    delete (payload.characters[0] as { character_id?: string }).character_id;
+    const result = safeParseScreenplayV1(payload);
+    expect(result.success).toBe(true);
   });
 });

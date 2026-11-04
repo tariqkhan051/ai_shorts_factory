@@ -5,7 +5,7 @@ import { readFlowLiveGateEnv } from './flow-live-gates.js';
 import { GoogleFlowManualProvider } from './google-flow-manual-provider.js';
 import { isRecipeVerified, type FlowUiRecipe } from './flow-ui-recipe.js';
 import { GoogleFlowPlaywrightProvider } from './google-flow-playwright-provider.js';
-import { loadFlowUiRecipeFromEnv } from './load-recipe.js';
+import { loadFlowUiRecipeFromEnv } from './load-recipe-env.js';
 import { MockVideoGenerationProvider } from './mock-provider.js';
 import type { VideoGenerationProvider } from './provider.js';
 
