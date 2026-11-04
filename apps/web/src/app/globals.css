@@ -31,3 +31,14 @@ body {
 ::selection {
   background: rgba(61, 214, 198, 0.35);
 }
+
+@layer components {
+  .field-input {
+    @apply w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition;
+  }
+
+  .field-input:focus {
+    @apply border-accent/60 ring-1 ring-accent/40;
+  }
+}
+
