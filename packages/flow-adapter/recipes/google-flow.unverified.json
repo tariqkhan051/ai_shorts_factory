@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "verifiedAt": null,
+  "verifiedBy": null,
+  "notes": "Inspect live Google Flow in a real browser, fill every required selector, set verifiedAt/verifiedBy, then set FLOW_UI_VERIFIED=true. Do not invent Flow HTTP APIs or bypass CAPTCHA.",
+  "baseUrl": "",
+  "modelOptionLabel": "Gemini Omni Flash",
+  "selectors": {
+    "promptInput": "",
+    "modelControl": "",
+    "durationControl": "",
+    "resolutionControl": "",
+    "submitButton": "",
+    "resultReady": "",
+    "downloadButton": "",
+    "creditCostBadge": "",
+    "captchaOrChallenge": "",
+    "loginRequired": ""
+  }
+}

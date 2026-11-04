@@ -53,6 +53,8 @@ export type GenerationRunnerOptions = {
   durationSeconds?: number;
   resolution?: string;
   estimatedCostPerScene?: number;
+  /** Phase 4 single-scene live verification — process at most N pending scenes. */
+  maxScenes?: number;
   /** Injected failures for tests — never used against live Flow. */
   failOnSceneNumber?: number;
   failMode?: 'before_submit' | 'after_submit_uncertain' | 'download';

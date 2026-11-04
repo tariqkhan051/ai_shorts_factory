@@ -1,4 +1,9 @@
-export const WORKFLOW_JOB_TYPES = ['GENERATE_PROJECT_SCENES', 'RETRY_SCENE'] as const;
+export const WORKFLOW_JOB_TYPES = [
+  'GENERATE_PROJECT_SCENES',
+  'RETRY_SCENE',
+  'VERIFY_SINGLE_SCENE',
+  'ASSEMBLE_PROJECT',
+] as const;
 
 export type WorkflowJobType = (typeof WORKFLOW_JOB_TYPES)[number];
 

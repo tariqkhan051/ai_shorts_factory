@@ -15,6 +15,6 @@ export const BUSINESS_DEFAULTS = {
 } as const;
 
 export const PHASE = {
-  current: 3,
-  name: 'Credit Engine and Mock Flow',
+  current: 5,
+  name: 'FFmpeg Assembly',
 } as const;

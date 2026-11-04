@@ -76,6 +76,23 @@ export default async function ProjectDetailPage({ params }: PageProps) {
       </section>
 
       <section className="rounded-lg border border-border bg-background-elevated/50 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-medium">Assemble</h2>
+            <p className="mt-1 text-sm text-muted">
+              FFmpeg vertical assembly under 59 seconds after five scenes complete.
+            </p>
+          </div>
+          <Link
+            href={`/projects/${project.id}/assemble`}
+            className="rounded-md border border-border px-4 py-2 text-sm hover:bg-background"
+          >
+            Open assemble
+          </Link>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-border bg-background-elevated/50 p-5">
         <h2 className="mb-4 text-lg font-medium">Idea & settings</h2>
         <ProjectForm mode="edit" project={project} />
       </section>

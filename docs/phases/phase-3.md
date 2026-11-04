@@ -53,4 +53,4 @@ Memory-mode queues are process-local. The web app processes enqueued jobs with a
 
 ## Exact next step
 
-Phase 4 — Verified single-scene Google Flow via Playwright after UI confirmation. Do not invent Flow HTTP APIs.
+Phase 4 — Verified single-scene Google Flow via Playwright after UI confirmation (see `phase-4.md`).

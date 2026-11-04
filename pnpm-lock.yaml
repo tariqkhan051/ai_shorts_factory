@@ -66,6 +66,9 @@ importers:
       '@ai-shorts-factory/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      '@ai-shorts-factory/workflow-engine':
+        specifier: workspace:*
+        version: link:../../packages/workflow-engine
     devDependencies:
       tsx:
         specifier: ^4.19.2
@@ -91,6 +94,9 @@ importers:
       '@ai-shorts-factory/flow-adapter':
         specifier: workspace:*
         version: link:../../packages/flow-adapter
+      '@ai-shorts-factory/media-engine':
+        specifier: workspace:*
+        version: link:../../packages/media-engine
       '@ai-shorts-factory/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -209,6 +215,9 @@ importers:
       '@ai-shorts-factory/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+      playwright:
+        specifier: ^1.49.1
+        version: 1.64.1
     devDependencies:
       typescript:
         specifier: ^5.7.2
@@ -2397,6 +2406,16 @@ packages:
   pirates@4.0.7:
     resolution: {integrity: sha512-TfySrs/5nm8fQJDcBDuUng3VOUKsd7S+zqvbOTiGXHfxX4wK31ard+hoNuvkicM/2YFzlpDgABOevKSsB4G/FA==}
     engines: {node: '>= 6'}
+
+  playwright-core@1.64.1:
+    resolution: {integrity: sha512-BC4s8y6SEVA6Q1rSxZTto8hI1KUI3xXlHGZgvGqP4IqPdI/a6FX9H29IDNz7vKo9l21b6LfYosScPL6M3xxyDQ==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  playwright@1.64.1:
+    resolution: {integrity: sha512-HCrVhHr5QQuwYoswEUGTb7gGp522yflbv/ST8nF4sFWGuLjQCt17Q/EubpGGSNKYn1tsTCPZxqHhHCfVURu7UA==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   possible-typed-array-names@1.1.0:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}
@@ -5010,6 +5029,12 @@ snapshots:
   picomatch@4.0.7: {}
 
   pirates@4.0.7: {}
+
+  playwright-core@1.64.1: {}
+
+  playwright@1.64.1:
+    dependencies:
+      playwright-core: 1.64.1
 
   possible-typed-array-names@1.1.0: {}
 

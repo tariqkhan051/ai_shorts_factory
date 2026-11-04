@@ -1,7 +1,7 @@
 # AI Shorts Factory — Architecture
 
-**Phase:** 3 — Credit Engine and Mock Flow  
-**Status:** Credits + mock sequential generation + job leases online  
+**Phase:** 5 — FFmpeg Assembly  
+**Status:** Vertical ≤59s assembly via media-engine + media-worker smoke  
 **Last updated:** 2026-11-04
 
 ## 1. Architecture assessment
@@ -113,7 +113,7 @@ Implementations:
 | Provider                       | Phase | Status                                                 |
 | ------------------------------ | ----- | ------------------------------------------------------ |
 | `MockVideoGenerationProvider`  | 0     | Implemented for dev/tests                              |
-| `GoogleFlowPlaywrightProvider` | 4     | Not started; requires UI inspection + permission check |
+| `GoogleFlowPlaywrightProvider` | 4     | Implemented; requires verified recipe + live env gates |
 
 Security constraints for live Flow:
 

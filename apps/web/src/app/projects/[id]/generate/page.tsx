@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { describeFlowProviderStatus } from '@ai-shorts-factory/flow-adapter/status';
 import { BUSINESS_DEFAULTS } from '@ai-shorts-factory/shared-types';
 import {
   retryFailedSceneAction,
@@ -44,6 +45,7 @@ export default async function GeneratePage({ params }: PageProps) {
   const story = await stories.getByProject(user.id, id);
   const approved = Boolean(story?.approved_at && story.current_version?.screenplay);
   const credits = await getCreditLedger().getBalances(user.id);
+  const flow = describeFlowProviderStatus(process.env);
 
   let scenes: Awaited<ReturnType<AppGenerationStore['ensureScenesFromScreenplay']>> = [];
   let snapshotError: string | null = null;
@@ -76,10 +78,18 @@ export default async function GeneratePage({ params }: PageProps) {
         <h1 className="text-3xl font-semibold tracking-tight">Scene generation</h1>
         <p className="max-w-3xl text-muted">
           Sequential mock Flow generation — five scenes, ten credits each, no automatic retries.
-          Live Google Flow is deferred to Phase 4.
+          Live Google Flow uses Playwright in the worker only after UI recipe verification.
         </p>
         <p className="font-mono text-xs uppercase tracking-wide text-accent">
           {project.workflow_state}
+        </p>
+        <p className="text-sm text-muted">
+          Live Flow gates:{' '}
+          <span className="font-mono text-foreground">{flow.gatesOk ? 'open' : 'closed'}</span>
+          {' · '}
+          <Link href="/settings" className="text-accent hover:underline">
+            Settings
+          </Link>
         </p>
       </div>
 
@@ -115,7 +125,11 @@ export default async function GeneratePage({ params }: PageProps) {
               {snapshotError ? <p className="mt-2 text-sm text-danger">{snapshotError}</p> : null}
               {assemblyReady ? (
                 <p className="mt-2 text-sm text-success">
-                  All scenes ready — assembly lands in Phase 5.
+                  All scenes ready —{' '}
+                  <Link href={`/projects/${project.id}/assemble`} className="underline">
+                    assemble final video
+                  </Link>
+                  .
                 </p>
               ) : null}
             </div>

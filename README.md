@@ -2,9 +2,9 @@
 
 Cloud-based short video production platform: idea → ChatGPT screenplay import → sequential scene generation → FFmpeg assembly → reviewed MP4 download.
 
-**Current phase: 3 — Credit Engine and Mock Flow**
+**Current phase: 5 — FFmpeg Assembly**
 
-This is a real application under phased construction. Live Google Flow automation and paid APIs are **not** enabled. Story writing uses a copyable ChatGPT website prompt + JSON import. Scene generation uses the mock provider and a 50-credit daily ledger.
+This is a real application under phased construction. Paid APIs are **not** enabled. Story writing uses a copyable ChatGPT website prompt + JSON import. Product generation defaults to the mock provider; assembly uses FFmpeg toward a ≤59s vertical MP4. Live Google Flow is Playwright UI automation only, hard-gated until an operator verifies selectors.
 
 ## Stack
 
@@ -69,6 +69,21 @@ Workers stay off unless explicitly enabled. Memory queues are process-local; the
 FLOW_WORKER_ENABLED=true FLOW_WORKER_SMOKE=true FLOW_PROVIDER=mock pnpm --filter @ai-shorts-factory/flow-worker start
 ```
 
+After filling a verified Flow UI recipe (see `docs/phases/phase-4.md`):
+
+```bash
+pnpm exec playwright install chromium
+FLOW_PROVIDER=playwright FLOW_LIVE_ENABLED=true FLOW_UI_VERIFIED=true \
+  FLOW_BROWSER_PROFILE_DIR=./.flow-profile FLOW_UI_RECIPE_PATH=./path/to/recipe.json \
+  pnpm --filter @ai-shorts-factory/flow-worker verify:scene
+```
+
+FFmpeg smoke assembly:
+
+```bash
+MEDIA_WORKER_ENABLED=true MEDIA_WORKER_SMOKE=true pnpm --filter @ai-shorts-factory/media-worker start
+```
+
 ## Environment
 
 Copy `.env.example`. Never commit secrets. Never expose:
@@ -97,8 +112,8 @@ See [docs/architecture.md](./docs/architecture.md) and [docs/phases/](./docs/pha
 | 1     | Database, auth, RLS, projects, storage ✅            |
 | 2     | ChatGPT story studio ✅                              |
 | 3     | Credits + mock sequential generation ✅              |
-| 4     | Verified single-scene Google Flow                    |
-| 5     | FFmpeg assembly                                      |
+| 4     | Verified single-scene Google Flow ✅                 |
+| 5     | FFmpeg assembly ✅                                   |
 | 6     | Realtime dashboard + notifications                   |
 | 7     | Hardening + deployment                               |
 

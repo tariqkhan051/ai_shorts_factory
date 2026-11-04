@@ -5,7 +5,6 @@ import {
   SequentialGenerationRunner,
   type JobQueue,
 } from '@ai-shorts-factory/workflow-engine';
-import { createObjectStorage } from '@ai-shorts-factory/storage';
 import { BUSINESS_DEFAULTS } from '@ai-shorts-factory/shared-types';
 import { AppGenerationStore } from '@/lib/generation/app-generation-store';
 import {
@@ -13,6 +12,7 @@ import {
   getProjectRepository,
   getStoryRepository,
 } from '@/lib/projects/repository';
+import { getObjectStorage } from '@/lib/storage';
 
 const globalForGeneration = globalThis as typeof globalThis & {
   __asfCredits?: MemoryCreditLedger;
@@ -54,6 +54,6 @@ export async function createGenerationRunner(): Promise<SequentialGenerationRunn
     store,
     getCreditLedger(),
     getMockProvider(),
-    createObjectStorage(process.env),
+    getObjectStorage(),
   );
 }

@@ -10,6 +10,16 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./status": {
+      "types": "./dist/flow-status.d.ts",
+      "import": "./dist/flow-status.js",
+      "default": "./dist/flow-status.js"
+    },
+    "./live": {
+      "types": "./dist/live.d.ts",
+      "import": "./dist/live.js",
+      "default": "./dist/live.js"
     }
   },
   "scripts": {
@@ -20,7 +30,8 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@ai-shorts-factory/shared-types": "workspace:*"
+    "@ai-shorts-factory/shared-types": "workspace:*",
+    "playwright": "^1.49.1"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

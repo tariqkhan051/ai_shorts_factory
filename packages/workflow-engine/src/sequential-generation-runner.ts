@@ -55,11 +55,18 @@ export class SequentialGenerationRunner {
 
     await this.reachGeneratingScenes(userId, projectId, snapshot.workflowState);
 
+    const maxScenes = options.maxScenes;
+    let attempted = 0;
+
     for (const scene of scenes.sort((a, b) => a.sceneNumber - b.sceneNumber)) {
       if (scene.state === 'COMPLETED') {
         continue;
       }
+      if (typeof maxScenes === 'number' && attempted >= maxScenes) {
+        break;
+      }
 
+      attempted += 1;
       const result = await this.runScene(userId, projectId, scene, options);
       if (result.status === 'completed') {
         completed += 1;
@@ -71,14 +78,18 @@ export class SequentialGenerationRunner {
       }
     }
 
-    await this.store.setProjectWorkflowState(userId, projectId, 'VERIFYING_SCENES');
-    if (completed !== BUSINESS_DEFAULTS.sceneCount) {
-      await this.store.setProjectWorkflowState(userId, projectId, 'PAUSED');
-      return { completed, failed: 'Not all scenes completed' };
+    if (completed === BUSINESS_DEFAULTS.sceneCount) {
+      await this.store.setProjectWorkflowState(userId, projectId, 'VERIFYING_SCENES');
+      await this.store.setProjectWorkflowState(userId, projectId, 'ASSEMBLY_READY');
+      return { completed };
     }
 
-    await this.store.setProjectWorkflowState(userId, projectId, 'ASSEMBLY_READY');
-    return { completed };
+    // Partial runs (e.g. Phase 4 single-scene verify) pause for operator review.
+    await this.store.setProjectWorkflowState(userId, projectId, 'PAUSED');
+    if (typeof maxScenes === 'number' && attempted > 0 && !options.failOnSceneNumber) {
+      return { completed };
+    }
+    return { completed, failed: 'Not all scenes completed' };
   }
 
   async retryScene(

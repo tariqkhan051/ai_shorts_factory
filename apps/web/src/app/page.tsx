@@ -126,10 +126,10 @@ export default async function DashboardPage() {
       </section>
 
       <section className="rounded-lg border border-dashed border-border px-5 py-6">
-        <h2 className="text-lg font-medium text-foreground">Next up — Phase 4</h2>
+        <h2 className="text-lg font-medium text-foreground">Next up — Phase 6</h2>
         <p className="mt-2 max-w-3xl text-sm text-muted">
-          Verified single-scene Google Flow via Playwright behind the provider interface — only
-          after UI confirmation. Mock generation and the credit ledger are available now.
+          Realtime dashboard and PWA notifications. Assembly and mock generation are available now;
+          live Flow stays operator-gated.
         </p>
       </section>
     </div>

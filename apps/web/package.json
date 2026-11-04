@@ -16,6 +16,7 @@
     "@ai-shorts-factory/credit-manager": "workspace:*",
     "@ai-shorts-factory/database": "workspace:*",
     "@ai-shorts-factory/flow-adapter": "workspace:*",
+    "@ai-shorts-factory/media-engine": "workspace:*",
     "@ai-shorts-factory/shared-types": "workspace:*",
     "@ai-shorts-factory/storage": "workspace:*",
     "@ai-shorts-factory/validation": "workspace:*",

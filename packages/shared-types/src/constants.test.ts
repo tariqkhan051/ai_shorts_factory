@@ -22,7 +22,7 @@ describe('WORKFLOW_STATES', () => {
 
 describe('PHASE', () => {
   it('reports the active delivery phase', () => {
-    expect(PHASE.current).toBe(3);
-    expect(PHASE.name).toMatch(/Credit Engine/i);
+    expect(PHASE.current).toBe(5);
+    expect(PHASE.name).toMatch(/FFmpeg Assembly/i);
   });
 });

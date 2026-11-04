@@ -1,8 +1,8 @@
 import type { WorkflowState } from '@ai-shorts-factory/shared-types';
 
 /**
- * Legal project workflow transitions (Phase 2–3 surface).
- * Expanded for mock generation; durable event sourcing arrives with Postgres queue usage.
+ * Legal project workflow transitions (Phase 2–5 surface).
+ * Expanded for generation + FFmpeg assembly.
  */
 const ALLOWED: Partial<Record<WorkflowState, readonly WorkflowState[]>> = {
   IDEA_SUBMITTED: ['STORY_PROMPT_READY', 'WAITING_FOR_CHATGPT', 'STORY_IMPORTED'],
@@ -41,14 +41,18 @@ const ALLOWED: Partial<Record<WorkflowState, readonly WorkflowState[]>> = {
     'READY_FOR_GENERATION',
     'GENERATING_SCENES',
     'CREDIT_RESERVED',
+    'ASSEMBLY_READY',
+    'ASSEMBLING',
+    'QUALITY_CHECK',
   ],
   NEEDS_HUMAN_INTERVENTION: [
     'READY_FOR_GENERATION',
     'GENERATING_SCENES',
     'PAUSED',
     'WAITING_FOR_CHATGPT',
+    'ASSEMBLY_READY',
   ],
-  FAILED: ['PAUSED', 'READY_FOR_GENERATION'],
+  FAILED: ['PAUSED', 'READY_FOR_GENERATION', 'ASSEMBLY_READY'],
   CANCELLED: [],
   APPROVED: [],
 };

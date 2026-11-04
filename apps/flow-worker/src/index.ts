@@ -1,5 +1,9 @@
 import { MemoryCreditLedger } from '@ai-shorts-factory/credit-manager';
-import { MockVideoGenerationProvider } from '@ai-shorts-factory/flow-adapter';
+import { describeFlowProviderStatus } from '@ai-shorts-factory/flow-adapter';
+import {
+  createVideoGenerationProvider,
+  GoogleFlowPlaywrightProvider,
+} from '@ai-shorts-factory/flow-adapter/live';
 import { BUSINESS_DEFAULTS, PHASE } from '@ai-shorts-factory/shared-types';
 import { MemoryObjectStorage } from '@ai-shorts-factory/storage';
 import { SCREENPLAY_SCHEMA_VERSION, type ScreenplayV1 } from '@ai-shorts-factory/validation';
@@ -56,6 +60,18 @@ async function processClaimedJob(
       }
       return;
     }
+    if (job.jobType === 'VERIFY_SINGLE_SCENE') {
+      const result = await runner.runProject(job.userId, job.projectId, {
+        workerId,
+        maxScenes: 1,
+      });
+      if (result.failed) {
+        await queue.fail(job.id, workerId, result.failed);
+      } else {
+        await queue.complete(job.id, workerId);
+      }
+      return;
+    }
     if (job.jobType === 'RETRY_SCENE') {
       const sceneNumber = Number(job.payload.sceneNumber);
       const result = await runner.retryScene(job.userId, job.projectId, sceneNumber, {
@@ -76,19 +92,18 @@ async function processClaimedJob(
 }
 
 /**
- * Flow worker entrypoint (Phase 3).
- * Claim / lease / complete loop against the in-process MemoryJobQueue.
- *
- * Memory queues are process-local: the web app processes its own enqueues via an
- * inline tick. This worker proves the same lease semantics and can smoke-test
- * with FLOW_WORKER_SMOKE=true. A shared Postgres queue replaces memory later.
+ * Flow worker entrypoint (Phase 4).
+ * Claim / lease / complete loop. Live Playwright requires explicit env gates.
+ * Prefer `pnpm --filter @ai-shorts-factory/flow-worker verify:scene` for the
+ * first human-verified single-scene live run.
  */
 async function main(): Promise<void> {
   const enabled = process.env.FLOW_WORKER_ENABLED === 'true';
-  const providerName = process.env.FLOW_PROVIDER ?? 'mock';
+  const providerName = (process.env.FLOW_PROVIDER ?? 'mock').toLowerCase();
   const keepalive = process.env.FLOW_WORKER_KEEPALIVE === 'true';
   const smoke = process.env.FLOW_WORKER_SMOKE === 'true';
   const workerId = process.env.FLOW_WORKER_ID ?? `flow-worker:${process.pid}`;
+  const flowStatus = describeFlowProviderStatus(process.env);
 
   console.info(
     JSON.stringify({
@@ -99,12 +114,13 @@ async function main(): Promise<void> {
       keepalive,
       smoke,
       workerId,
+      flowStatus,
       defaults: {
         sceneCount: BUSINESS_DEFAULTS.sceneCount,
         costPerScene: BUSINESS_DEFAULTS.estimatedCostPerScene,
         model: BUSINESS_DEFAULTS.defaultGenerationModel,
       },
-      note: 'Memory job queue is process-local; web generation uses an inline worker tick.',
+      note: 'Memory job queue is process-local; web mock generation uses an inline worker tick.',
     }),
   );
 
@@ -118,12 +134,37 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (providerName !== 'mock') {
+  if (providerName !== 'mock' && providerName !== 'playwright' && providerName !== 'google-flow') {
     console.error(
       JSON.stringify({
         service: 'flow-worker',
         level: 'error',
-        message: 'Non-mock providers are not available until Phase 4. Set FLOW_PROVIDER=mock.',
+        message: `Unsupported FLOW_PROVIDER=${providerName}. Use mock or playwright.`,
+      }),
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  if (providerName !== 'mock' && !flowStatus.gatesOk) {
+    console.error(
+      JSON.stringify({
+        service: 'flow-worker',
+        level: 'error',
+        message: 'Live Flow gates failed',
+        reasons: flowStatus.gateReasons,
+      }),
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  if (smoke && providerName !== 'mock') {
+    console.error(
+      JSON.stringify({
+        service: 'flow-worker',
+        level: 'error',
+        message: 'FLOW_WORKER_SMOKE requires FLOW_PROVIDER=mock to avoid live credit spend.',
       }),
     );
     process.exitCode = 1;
@@ -135,9 +176,7 @@ async function main(): Promise<void> {
   const credits = new MemoryCreditLedger({
     dailyBudget: BUSINESS_DEFAULTS.dailyFlowCreditBudget,
   });
-  const provider = new MockVideoGenerationProvider({
-    costPerGeneration: BUSINESS_DEFAULTS.estimatedCostPerScene,
-  });
+  const provider = createVideoGenerationProvider({ env: process.env });
   const storage = new MemoryObjectStorage();
   const runner = new SequentialGenerationRunner(store, credits, provider, storage);
 
@@ -200,6 +239,10 @@ async function main(): Promise<void> {
         lastError: finished?.lastError,
       }),
     );
+  }
+
+  if (provider instanceof GoogleFlowPlaywrightProvider) {
+    await provider.dispose();
   }
 
   console.info(

@@ -1,13 +1,29 @@
 /**
  * Package: @ai-shorts-factory/media-engine
- * FFmpeg assembly, probing, and quality gates
- *
- * Phase 0: scaffold only. Real implementation lands in later phases.
- * Do not treat this package as production-ready.
+ * FFmpeg assembly, probing, and quality gates (Phase 5).
  */
+
 export const PACKAGE_NAME = '@ai-shorts-factory/media-engine' as const;
-export const PACKAGE_PHASE = 0 as const;
-export const PACKAGE_STATUS = 'scaffold' as const;
+export const PACKAGE_PHASE = 5 as const;
+export const PACKAGE_STATUS = 'active' as const;
+
+export type { MediaToolPaths } from './paths.js';
+export type { MediaProbe } from './probe.js';
+export type { QualityGateInput, QualityGateResult } from './quality.js';
+export type {
+  AssemblySceneInput,
+  AssembleProjectInput,
+  AssembleProjectResult,
+} from './assemble.js';
+export type { SynthesizeClipInput } from './synthesize.js';
+export type { CommandResult } from './run-command.js';
+
+export { resolveMediaToolPaths, assertMediaToolsAvailable } from './paths.js';
+export { runCommand } from './run-command.js';
+export { probeMedia, isReadableVideo } from './probe.js';
+export { evaluateQualityGates } from './quality.js';
+export { synthesizeColorClip } from './synthesize.js';
+export { assembleProject } from './assemble.js';
 
 export function getPackageMeta() {
   return {
@@ -15,5 +31,6 @@ export function getPackageMeta() {
     phase: PACKAGE_PHASE,
     status: PACKAGE_STATUS,
     description: 'FFmpeg assembly, probing, and quality gates',
+    maxFinalSeconds: 59,
   } as const;
 }
