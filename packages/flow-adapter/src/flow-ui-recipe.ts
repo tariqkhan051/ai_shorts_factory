@@ -28,6 +28,8 @@ export type FlowUiSelectors = {
   loginRequired?: string;
   /** Visible when the authenticated Flow workspace is ready */
   workspaceReady?: string;
+  /** Opens Ingredients / reference-image picker for character consistency */
+  addIngredientsButton?: string;
 };
 
 export type FlowUiRecipe = {

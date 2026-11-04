@@ -86,7 +86,7 @@ const confirmation = {
   model: 'Veo 3.1 - Lite',
   aspectRatio: '9:16',
   resolution: '720p',
-  durationSeconds: 6,
+  durationSeconds: 8,
   estimatedCreditCost: 'estimated',
   createdAt: now.toISOString(),
   expiresAt: new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
@@ -141,7 +141,7 @@ const report = {
   intendedOptions: {
     model: 'Veo 3.1 - Lite',
     aspectRatio: '9:16',
-    durationSeconds: 6,
+    durationSeconds: 8,
     resolution: '720p',
     availabilityConfirmedInLiveUi: true,
     note: 'Model/aspect seen in UI. Duration pill on Scenes composer showed 8s for Veo Lite; resolution pill showed 720p. Discrete pickers still unmapped.',

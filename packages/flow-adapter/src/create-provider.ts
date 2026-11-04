@@ -2,6 +2,7 @@ import { BUSINESS_DEFAULTS } from '@ai-shorts-factory/shared-types';
 import type { FlowBrowserSessionFactory } from './browser-session.js';
 import { readFlowLiveConfig, resolveFlowModelOptionLabel } from './flow-live-config.js';
 import { readFlowLiveGateEnv } from './flow-live-gates.js';
+import { GoogleFlowManualProvider } from './google-flow-manual-provider.js';
 import { isRecipeVerified, type FlowUiRecipe } from './flow-ui-recipe.js';
 import { GoogleFlowPlaywrightProvider } from './google-flow-playwright-provider.js';
 import { loadFlowUiRecipeFromEnv } from './load-recipe.js';
@@ -15,9 +16,10 @@ export type CreateProviderOptions = {
 };
 
 /**
- * Factory: defaults to mock. Playwright / google-flow only when explicitly selected.
- * Provider still re-checks live gates on use. Never silently falls back to mock when
- * the operator requested a live provider name.
+ * Factory: defaults to mock.
+ * Prefer `google-flow-manual` for real Flow clips (human-in-the-loop).
+ * Playwright / google-flow automation stays available only with an explicit opt-in —
+ * it is disabled by default after Google unusual-activity blocks.
  */
 export function createVideoGenerationProvider(
   options: CreateProviderOptions = {},
@@ -33,9 +35,25 @@ export function createVideoGenerationProvider(
     });
   }
 
+  if (providerName === 'google-flow-manual') {
+    return new GoogleFlowManualProvider({
+      model: liveConfig.model,
+      estimatedCostPerScene: liveConfig.estimatedCostPerScene,
+      aspectRatio: liveConfig.aspectRatio,
+      resolution: liveConfig.resolution,
+      durationSeconds: liveConfig.durationSeconds,
+    });
+  }
+
   if (providerName !== 'playwright' && providerName !== 'google-flow') {
     throw new Error(
-      `Unsupported FLOW_PROVIDER=${providerName}. Use mock (default), playwright, or google-flow after UI verification.`,
+      `Unsupported FLOW_PROVIDER=${providerName}. Use mock (default), google-flow-manual, or playwright/google-flow with FLOW_ALLOW_PLAYWRIGHT_AUTOMATION=true.`,
+    );
+  }
+
+  if (env.FLOW_ALLOW_PLAYWRIGHT_AUTOMATION !== 'true') {
+    throw new Error(
+      `Automated FLOW_PROVIDER=${providerName} is disabled by default (Google unusual-activity). Use FLOW_PROVIDER=google-flow-manual, or set FLOW_ALLOW_PLAYWRIGHT_AUTOMATION=true only if you knowingly accept the risk.`,
     );
   }
 
@@ -43,7 +61,7 @@ export function createVideoGenerationProvider(
   const ci = (env.CI ?? '').toLowerCase() === 'true' || env.CI === '1';
   if (ci || env.NODE_ENV === 'test') {
     throw new Error(
-      `Refusing live FLOW_PROVIDER=${providerName} under CI/test. Use FLOW_PROVIDER=mock.`,
+      `Refusing live FLOW_PROVIDER=${providerName} under CI/test. Use FLOW_PROVIDER=mock or google-flow-manual.`,
     );
   }
 

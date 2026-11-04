@@ -20,12 +20,25 @@ describe('createVideoGenerationProvider', () => {
     expect(status.provider).toBe('mock');
   });
 
-  it('refuses to construct live provider under NODE_ENV=test', () => {
+  it('refuses automated google-flow without FLOW_ALLOW_PLAYWRIGHT_AUTOMATION', () => {
     expect(() =>
       createVideoGenerationProvider({
         env: {
           FLOW_PROVIDER: 'google-flow',
           FLOW_LIVE_ENABLED: 'true',
+          NODE_ENV: 'development',
+        },
+      }),
+    ).toThrow(/disabled by default/i);
+  });
+
+  it('refuses to construct live provider under NODE_ENV=test even with automation opt-in', () => {
+    expect(() =>
+      createVideoGenerationProvider({
+        env: {
+          FLOW_PROVIDER: 'google-flow',
+          FLOW_LIVE_ENABLED: 'true',
+          FLOW_ALLOW_PLAYWRIGHT_AUTOMATION: 'true',
           NODE_ENV: 'test',
         },
       }),

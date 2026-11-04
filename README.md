@@ -100,7 +100,7 @@ Copy `.env.example`. Never commit secrets. Never expose:
 - **10** credits per scene (expected)
 - Max final duration: **59** seconds
 - Sequential generation; no automatic replacements
-- Default model config: Veo 3.1 - Lite / 6s / 720p (override via `DEFAULT_GENERATION_MODEL` / `FLOW_MODEL_OPTION_LABEL`; verify in Flow UI before live use)
+- Default model config: Veo 3.1 - Lite / 8s / 720p (override via `DEFAULT_GENERATION_MODEL` / `FLOW_MODEL_OPTION_LABEL`; verify in Flow UI before live use)
 
 ## Phase roadmap
 

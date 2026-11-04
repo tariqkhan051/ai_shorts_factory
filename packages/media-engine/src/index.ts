@@ -17,13 +17,24 @@ export type {
 } from './assemble.js';
 export type { SynthesizeClipInput } from './synthesize.js';
 export type { CommandResult } from './run-command.js';
+export type {
+  MediaContract,
+  MediaContractResult,
+  MediaContractViolation,
+} from './media-contract.js';
 
 export { resolveMediaToolPaths, assertMediaToolsAvailable } from './paths.js';
 export { runCommand } from './run-command.js';
-export { probeMedia, isReadableVideo } from './probe.js';
+export { probeMedia, isReadableVideo, assertDecodableVideo } from './probe.js';
 export { evaluateQualityGates } from './quality.js';
 export { synthesizeColorClip, mockSceneColor, MOCK_SCENE_COLORS } from './synthesize.js';
 export { assembleProject } from './assemble.js';
+export {
+  DEFAULT_FLOW_IMPORT_MEDIA_CONTRACT,
+  readMediaContractFromEnv,
+  validateBytesAgainstContract,
+  validateProbeAgainstContract,
+} from './media-contract.js';
 
 export function getPackageMeta() {
   return {

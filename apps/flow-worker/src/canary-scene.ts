@@ -197,6 +197,10 @@ async function main(): Promise<void> {
     log.info('media-engine unavailable — download size/sha checks still apply');
   }
 
+  const referenceAssetPaths = [
+    env.FLOW_CANARY_REFERENCE_IMAGE?.trim(),
+  ].filter((value): value is string => Boolean(value));
+
   const result = await runner.runProject(userId, projectId, {
     workerId: `canary:${process.pid}`,
     maxScenes: 1,
@@ -204,6 +208,7 @@ async function main(): Promise<void> {
     durationSeconds: config.durationSeconds,
     resolution: config.resolution,
     aspectRatio: config.aspectRatio,
+    referenceAssetPaths: referenceAssetPaths.length > 0 ? referenceAssetPaths : undefined,
     estimatedCostPerScene:
       typeof config.estimatedCostPerScene === 'number'
         ? config.estimatedCostPerScene

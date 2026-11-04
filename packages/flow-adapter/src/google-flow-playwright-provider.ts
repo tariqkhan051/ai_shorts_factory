@@ -222,6 +222,43 @@ export class GoogleFlowPlaywrightProvider implements VideoGenerationProvider {
 
     await session.fill(selectors.promptInput, request.prompt);
 
+    // Character consistency: attach Ingredients / reference images before Generate.
+    if (request.referenceAssetPaths?.length && session.attachFiles) {
+      const addIngredients =
+        (selectors as { addIngredientsButton?: string }).addIngredientsButton?.trim() ||
+        'button[aria-label="Add ingredients to the prompt box"]';
+      for (const filePath of request.referenceAssetPaths) {
+        await session.attachFiles(addIngredients, [filePath]);
+      }
+    }
+
+    // Ensure Video composer options via Settings trigger when present.
+    const settingsTrigger = 'button[aria-label="Settings trigger"]';
+    if (await session.isVisible(settingsTrigger)) {
+      await session.click(settingsTrigger);
+      try {
+        await session.selectOption(settingsTrigger, 'Video');
+      } catch {
+        // Already on video or radio selected elsewhere.
+      }
+      const aspect =
+        request.aspectRatio ??
+        this.options.recipe.aspectRatioOptionLabel ??
+        undefined;
+      if (aspect) {
+        try {
+          await session.selectOption(settingsTrigger, aspect);
+        } catch {
+          // Aspect may already match pill / radios.
+        }
+      }
+      try {
+        await session.selectOption(settingsTrigger, 'x1');
+      } catch {
+        // Output count control may already be x1.
+      }
+    }
+
     const modelLabel = this.options.recipe.modelOptionLabel ?? request.model;
     if (this.options.recipe.modelOptionLabel) {
       await session.selectOption(selectors.modelControl, modelLabel);

@@ -32,6 +32,7 @@ export type { FlowSessionStatusReport } from './flow-session-status.js';
 export type { LiveSpendConfirmationPayload } from './spend-confirmation.js';
 
 export { MockVideoGenerationProvider } from './mock-provider.js';
+export { GoogleFlowManualProvider } from './google-flow-manual-provider.js';
 export {
   createUnverifiedFlowUiRecipe,
   assertRecipeShape,
@@ -49,6 +50,7 @@ export {
   resolveFlowModelOptionLabel,
   resolveLiveMaxScenes,
   isLiveFlowProviderName,
+  isManualFlowProviderName,
 } from './flow-live-config.js';
 export { describeFlowSessionStatus } from './flow-session-status.js';
 export {
@@ -59,16 +61,35 @@ export {
 } from './spend-confirmation.js';
 export { loadFlowUiRecipeFromFile, loadFlowUiRecipeFromEnv } from './load-recipe.js';
 export { describeFlowProviderStatus } from './flow-status.js';
+export {
+  buildFlowGenerationPackage,
+  exportFlowGenerationManifest,
+  isSceneReadyForAssembly,
+  isMockAssemblyState,
+  isRealAssemblyState,
+  isManualFlowSceneState,
+  type FlowCharacterReferenceHint,
+  type FlowSceneGenerationTask,
+  type FlowGenerationPackage,
+  type BuildFlowGenerationPackageInput,
+} from './manual-generation-package.js';
+export {
+  canTransitionManualScene,
+  assertManualSceneTransition,
+} from './manual-scene-transitions.js';
 
 export function getPackageMeta() {
   return {
     name: PACKAGE_NAME,
     phase: PACKAGE_PHASE,
     status: PACKAGE_STATUS,
-    description: 'VideoGenerationProvider with mock and gated Playwright Google Flow provider',
+    description:
+      'VideoGenerationProvider with mock, google-flow-manual (HITL), and opt-in Playwright Google Flow',
     liveProviderReady: false,
     liveRequiresUiVerification: true,
     liveImportPath: '@ai-shorts-factory/flow-adapter/live',
     canaryMode: true,
+    manualProvider: 'google-flow-manual',
+    playwrightAutomationDefault: false,
   } as const;
 }

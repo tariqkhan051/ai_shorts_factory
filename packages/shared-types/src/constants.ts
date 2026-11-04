@@ -4,7 +4,8 @@ export const BUSINESS_DEFAULTS = {
   sceneCount: 5,
   estimatedCostPerScene: 10,
   maxGenerationsPerProject: 5,
-  defaultGenerationDurationSeconds: 6,
+  /** Veo 3.1 - Lite Scenes UI shows a fixed 8s clip (override via DEFAULT_GENERATION_DURATION_SECONDS). */
+  defaultGenerationDurationSeconds: 8,
   defaultGenerationResolution: '720p',
   defaultGenerationAspectRatio: '9:16',
   /** Must match a visible Google Flow UI model label (override via DEFAULT_GENERATION_MODEL). */

@@ -9,6 +9,7 @@ import {
 } from '@/lib/assembly/file-assembly-store';
 import { getAssemblyRecordStore } from '@/lib/assembly/runtime';
 import { createAssemblyRecord, type AssemblyRecord } from '@/lib/assembly/types';
+import { evaluateAssemblyGate } from '@/lib/generation/assembly-gate';
 import { AppGenerationStore } from '@/lib/generation/app-generation-store';
 import { getNotificationPublisher } from '@/lib/notifications/runtime';
 import {
@@ -29,6 +30,7 @@ export type AssembleProjectOutcome = {
   usedSyntheticPlaceholders: boolean;
   upscaledFromLowerResolution: boolean;
   notes: string[];
+  assemblyMode: 'real' | 'mock';
 };
 
 /**
@@ -62,11 +64,15 @@ export async function assembleProjectForUser(
     ? snapshot.scenes
     : await store.ensureScenesFromScreenplay(userId, projectId, snapshot.screenplay);
 
-  const completed = scenes.filter((scene) => scene.state === 'COMPLETED');
-  if (completed.length !== BUSINESS_DEFAULTS.sceneCount) {
-    throw new Error(
-      `Need ${BUSINESS_DEFAULTS.sceneCount} completed scenes before assembly (have ${completed.length})`,
-    );
+  const gate = evaluateAssemblyGate(scenes);
+  if (!gate.ok) {
+    throw new Error(gate.message);
+  }
+  const completed = gate.scenes;
+  const assemblyMode = gate.mode;
+  const allowSyntheticPlaceholders = assemblyMode === 'mock';
+  if (assemblyMode === 'real' && allowSyntheticPlaceholders) {
+    throw new Error('Internal error: real assembly cannot enable synthetic placeholders');
   }
 
   const existing = await assemblyStore.getByProject(userId, projectId);
@@ -87,11 +93,14 @@ export async function assembleProjectForUser(
       fps: existing?.fps ?? null,
       videoCodec: existing?.videoCodec ?? null,
       audioCodec: existing?.audioCodec ?? null,
-      usedSyntheticPlaceholders: true,
+      usedSyntheticPlaceholders: allowSyntheticPlaceholders,
       upscaledFromLowerResolution: true,
       sceneCount: BUSINESS_DEFAULTS.sceneCount,
       completedSceneCount: completed.length,
-      notes: [],
+      notes:
+        assemblyMode === 'mock'
+          ? ['MOCK/SYNTHETIC assembly path — not real Google Flow media']
+          : ['REAL assembly path — synthetic placeholders disabled'],
       error: null,
       completedAt: null,
     }),
@@ -127,17 +136,33 @@ export async function assembleProjectForUser(
       });
     }
 
+    // Real path: refuse silent fallback to placeholders if any scene file is unreadable.
+    if (assemblyMode === 'real') {
+      for (const input of sceneInputs) {
+        const scene = completed.find((item) => item.sceneNumber === input.sceneNumber);
+        if (!scene?.assetStorageKey) {
+          throw new Error(`Scene ${input.sceneNumber} missing durable asset during real assembly`);
+        }
+      }
+    }
+
     const outputPath = join(root, 'final.mp4');
     const assembled = await assembleProject({
       scenes: sceneInputs,
       workDir: join(root, 'work'),
       outputPath,
-      allowSyntheticPlaceholders: true,
+      allowSyntheticPlaceholders,
       maxSeconds: BUSINESS_DEFAULTS.finalVideoMaxSeconds,
       width: BUSINESS_DEFAULTS.finalVideoTargetWidth,
       height: BUSINESS_DEFAULTS.finalVideoTargetHeight,
       fps: BUSINESS_DEFAULTS.finalVideoFps,
     });
+
+    if (assemblyMode === 'real' && assembled.usedSyntheticPlaceholders) {
+      throw new Error(
+        'Real assembly produced synthetic placeholders — refusing to publish. Check scene assets.',
+      );
+    }
 
     await projects.setWorkflowState(userId, projectId, 'QUALITY_CHECK');
 
@@ -189,7 +214,12 @@ export async function assembleProjectForUser(
         upscaledFromLowerResolution: assembled.upscaledFromLowerResolution,
         sceneCount: BUSINESS_DEFAULTS.sceneCount,
         completedSceneCount: completed.length,
-        notes: quality.notes,
+        notes: [
+          ...(assemblyMode === 'mock'
+            ? ['MOCK/SYNTHETIC output — not real AI-generated Flow video']
+            : ['REAL Flow import assembly']),
+          ...quality.notes,
+        ],
         error: null,
       }),
     );
@@ -230,6 +260,7 @@ export async function assembleProjectForUser(
       usedSyntheticPlaceholders: assembled.usedSyntheticPlaceholders,
       upscaledFromLowerResolution: assembled.upscaledFromLowerResolution,
       notes: quality.notes,
+      assemblyMode,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'FFmpeg assembly failed';

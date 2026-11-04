@@ -65,7 +65,12 @@ export default async function GeneratePage({ params }: PageProps) {
     }
   }
 
-  const completedCount = scenes.filter((scene) => scene.state === 'COMPLETED').length;
+  const completedCount = scenes.filter(
+    (scene) =>
+      scene.state === 'COMPLETED' ||
+      scene.state === 'REAL_GENERATED' ||
+      scene.state === 'READY_FOR_ASSEMBLY',
+  ).length;
   const canStart =
     approved &&
     GENERATION_START_STATES.has(project.workflow_state) &&
@@ -83,7 +88,7 @@ export default async function GeneratePage({ params }: PageProps) {
         <h1 className="text-3xl font-semibold tracking-tight">Scene generation</h1>
         <p className="max-w-3xl text-muted">
           Sequential generation with immutable credit ledger. Mock mode remains the default product
-          path. Live Google Flow is canary-gated to Scene 1 until you unlock five-scene runs.
+          path. Real Google Flow uses the human-in-the-loop Generation Package (no Playwright Generate).
         </p>
         <p className="font-mono text-xs uppercase tracking-wide text-accent">
           {project.workflow_state}
@@ -114,6 +119,22 @@ export default async function GeneratePage({ params }: PageProps) {
         </section>
       ) : (
         <>
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-accent/30 bg-accent/5 p-5">
+            <div>
+              <h2 className="text-lg font-medium">Google Flow (manual)</h2>
+              <p className="mt-1 text-sm text-muted">
+                Prepare prompts, copy into normal Chrome, upload verified MP4s. Playwright Generate is
+                disabled by default.
+              </p>
+            </div>
+            <Link
+              href={`/projects/${project.id}/flow-package`}
+              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background hover:bg-accent/90"
+            >
+              Open Flow Generation Package
+            </Link>
+          </section>
+
           <LiveCanaryPanel projectId={project.id} liveConfigured={liveConfigured} />
 
           <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background-elevated/50 p-5">

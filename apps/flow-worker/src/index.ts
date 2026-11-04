@@ -168,15 +168,27 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (providerName !== 'mock' && providerName !== 'playwright' && providerName !== 'google-flow') {
+  if (
+    providerName !== 'mock' &&
+    providerName !== 'playwright' &&
+    providerName !== 'google-flow' &&
+    providerName !== 'google-flow-manual'
+  ) {
     console.error(
       JSON.stringify({
         service: 'flow-worker',
         level: 'error',
-        message: `Unsupported FLOW_PROVIDER=${providerName}. Use mock or playwright.`,
+        message: `Unsupported FLOW_PROVIDER=${providerName}. Use mock, google-flow-manual, or playwright/google-flow.`,
       }),
     );
     process.exitCode = 1;
+    return;
+  }
+
+  if (providerName === 'google-flow-manual') {
+    log.info(
+      'FLOW_PROVIDER=google-flow-manual — worker will not drive Playwright Generate. Use the web Flow Generation Package + upload path.',
+    );
     return;
   }
 

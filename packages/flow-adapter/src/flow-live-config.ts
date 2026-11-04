@@ -112,7 +112,12 @@ export function readFlowLiveConfig(env: NodeJS.ProcessEnv = process.env): FlowLi
 
 export function isLiveFlowProviderName(provider: string): boolean {
   const name = provider.toLowerCase();
+  // Manual human-in-the-loop is real media, but not Playwright live automation.
   return name === 'playwright' || name === 'google-flow';
+}
+
+export function isManualFlowProviderName(provider: string): boolean {
+  return provider.toLowerCase() === 'google-flow-manual';
 }
 
 /**

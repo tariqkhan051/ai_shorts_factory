@@ -76,5 +76,20 @@ export interface CreditLedger {
     amount: number;
     reason: string;
     projectId?: string;
+    idempotencyKey?: string;
+  }): Promise<CreditLedgerEntry>;
+  /**
+   * Record operator-reported unknown Flow spend without inventing a zero amount.
+   * Uses UNKNOWN_CONSUMPTION entries. amount must be positive estimated unknown, or
+   * pass amount: 'unknown' to record a qualitative unknown with no numeric claim.
+   */
+  recordUnknownConsumption(input: {
+    userId: string;
+    projectId?: string;
+    /** Positive estimated unknown burn, or 'unknown' when magnitude is not known. */
+    amount: number | 'unknown';
+    reason: string;
+    idempotencyKey: string;
+    metadata?: Record<string, unknown>;
   }): Promise<CreditLedgerEntry>;
 }

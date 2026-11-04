@@ -40,6 +40,15 @@ export const SCENE_STATES = [
   'UNKNOWN_SUBMISSION',
   'DOWNLOAD_FAILED',
   'VERIFICATION_FAILED',
+  /** Human-in-the-loop Google Flow package: prompts prepared, no browser automation. */
+  'PROMPT_READY',
+  'AWAITING_MANUAL_GENERATION',
+  'GENERATED_PENDING_UPLOAD',
+  'UPLOADED_PENDING_VERIFICATION',
+  /** Verified real Flow download imported by the operator (not mock). */
+  'REAL_GENERATED',
+  /** Scene is eligible for FFmpeg assembly after real verification. */
+  'READY_FOR_ASSEMBLY',
 ] as const;
 
 export type SceneState = (typeof SCENE_STATES)[number];

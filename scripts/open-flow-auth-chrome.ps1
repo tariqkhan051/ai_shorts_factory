@@ -2,7 +2,7 @@
 # Manual sign-in only — no Generate automation, no credit spend.
 param(
   [string]$ProfileDir = "D:\repos\personal\ai_shorts_factory\.flow-profile",
-  [string]$Url = "https://flow.google.com/"
+  [string]$Url = "https://flow.google.com/project/cd052117-55ba-426e-a396-9eb70d48dbfa"
 )
 
 $chromeCandidates = @(
@@ -18,14 +18,16 @@ if (-not $chrome) {
 }
 
 New-Item -ItemType Directory -Force -Path $ProfileDir | Out-Null
-Write-Host "Launching Chrome for manual Flow sign-in..."
+Write-Host "Launching PLAIN Chrome (no Playwright / no CDP)..."
 Write-Host "Profile: $ProfileDir"
 Write-Host "URL: $Url"
-Write-Host "Sign in manually. Do NOT click Generate. Reply in chat: workspace visible"
+Write-Host "Reuse library Rina via Ingredients. If the prompt is ready, click Start generation here."
+Write-Host "Do not relaunch live-canary until this Generate succeeds or you cancel."
 
 Start-Process -FilePath $chrome -ArgumentList @(
   "--user-data-dir=$ProfileDir",
   "--no-first-run",
   "--no-default-browser-check",
+  "--disable-extensions",
   $Url
 )

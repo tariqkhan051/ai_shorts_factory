@@ -342,6 +342,7 @@ export class SequentialGenerationRunner {
           durationSeconds,
           resolution,
           aspectRatio,
+          referenceAssetPaths: options.referenceAssetPaths,
         });
         submissionId = submission.submissionId;
         submitClicked = true;

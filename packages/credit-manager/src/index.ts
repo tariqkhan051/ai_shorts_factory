@@ -17,6 +17,7 @@ export type {
 } from './types.js';
 export { CREDIT_ENTRY_TYPES } from './types.js';
 export { MemoryCreditLedger } from './memory-credit-ledger.js';
+export { FileCreditLedger } from './file-credit-ledger.js';
 
 export function getPackageMeta() {
   return {

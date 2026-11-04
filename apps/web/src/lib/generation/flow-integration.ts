@@ -37,13 +37,28 @@ export function buildFlowIntegrationSnapshot(input: {
 }): FlowIntegrationSnapshot {
   const flow = describeFlowProviderStatus(input.env ?? process.env);
   const providerLabel =
-    flow.provider === 'google-flow' || flow.provider === 'playwright' ? 'Google Flow' : 'Mock';
+    flow.provider === 'google-flow' ||
+    flow.provider === 'playwright' ||
+    flow.provider === 'google-flow-manual'
+      ? 'Google Flow'
+      : 'Mock';
 
   const active = input.scenes.find((scene) =>
-    ['GENERATING', 'SUBMITTING', 'DOWNLOADING', 'VERIFYING'].includes(scene.state),
+    [
+      'GENERATING',
+      'SUBMITTING',
+      'DOWNLOADING',
+      'VERIFYING',
+      'AWAITING_MANUAL_GENERATION',
+      'UPLOADED_PENDING_VERIFICATION',
+    ].includes(scene.state),
   );
   const completedLive = input.scenes.filter(
-    (scene) => scene.state === 'COMPLETED' && scene.assetOrigin === 'REAL_GENERATED',
+    (scene) =>
+      (scene.state === 'COMPLETED' ||
+        scene.state === 'REAL_GENERATED' ||
+        scene.state === 'READY_FOR_ASSEMBLY') &&
+      scene.assetOrigin === 'REAL_GENERATED',
   ).length;
 
   return {

@@ -63,15 +63,23 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           <div>
             <h2 className="text-lg font-medium">Scene generation</h2>
             <p className="mt-1 text-sm text-muted">
-              Mock Flow sequential generation, credit ledger, and per-scene progress. No live Flow.
+              Mock sequential generation, credit ledger, and the human-in-the-loop Google Flow package.
             </p>
           </div>
-          <Link
-            href={`/projects/${project.id}/generate`}
-            className="rounded-md border border-border px-4 py-2 text-sm hover:bg-background"
-          >
-            Open generation
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/projects/${project.id}/flow-package`}
+              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background hover:bg-accent/90"
+            >
+              Flow package
+            </Link>
+            <Link
+              href={`/projects/${project.id}/generate`}
+              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-background"
+            >
+              Open generation
+            </Link>
+          </div>
         </div>
       </section>
 

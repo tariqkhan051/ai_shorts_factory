@@ -1,4 +1,8 @@
-import { MemoryCreditLedger } from '@ai-shorts-factory/credit-manager';
+import {
+  FileCreditLedger,
+  MemoryCreditLedger,
+  type CreditLedger,
+} from '@ai-shorts-factory/credit-manager';
 import { MockVideoGenerationProvider } from '@ai-shorts-factory/flow-adapter';
 import {
   MemoryJobQueue,
@@ -15,16 +19,21 @@ import {
 import { getObjectStorage } from '@/lib/storage';
 
 const globalForGeneration = globalThis as typeof globalThis & {
-  __asfCredits?: MemoryCreditLedger;
+  __asfCredits?: CreditLedger;
   __asfJobs?: MemoryJobQueue;
   __asfMockProvider?: MockVideoGenerationProvider;
 };
 
-export function getCreditLedger(): MemoryCreditLedger {
+export function getCreditLedger(): CreditLedger {
   if (!globalForGeneration.__asfCredits) {
-    globalForGeneration.__asfCredits = new MemoryCreditLedger({
-      dailyBudget: BUSINESS_DEFAULTS.dailyFlowCreditBudget,
-    });
+    const useFile = process.env.ASF_CREDIT_LEDGER !== 'memory';
+    globalForGeneration.__asfCredits = useFile
+      ? new FileCreditLedger({
+          dailyBudget: BUSINESS_DEFAULTS.dailyFlowCreditBudget,
+        })
+      : new MemoryCreditLedger({
+          dailyBudget: BUSINESS_DEFAULTS.dailyFlowCreditBudget,
+        });
   }
   return globalForGeneration.__asfCredits;
 }

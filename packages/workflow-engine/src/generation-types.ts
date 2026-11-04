@@ -14,8 +14,14 @@ export type SceneAssetMetadata = {
   width?: number | null;
   height?: number | null;
   hasVideo?: boolean;
+  hasAudio?: boolean;
+  videoCodec?: string | null;
+  audioCodec?: string | null;
+  formatName?: string | null;
+  aspectRatio?: number;
   probedAt?: string;
   originalDownloadPreserved?: boolean;
+  importOperationId?: string;
 };
 
 export type GenerationSceneRecord = {
@@ -37,6 +43,11 @@ export type GenerationSceneRecord = {
   assetOrigin?: AssetOrigin;
   assetMetadata?: SceneAssetMetadata;
   errorMessage?: string;
+  /** Estimated Flow credit cost for this scene (never treated as confirmed). */
+  estimatedCreditCost?: number | 'unknown';
+  /** Operator-confirmed actual spend after checking the Google Flow account. */
+  confirmedCreditCost?: number | 'unknown';
+  creditReconciliationNote?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -86,6 +97,8 @@ export type GenerationRunnerOptions = {
   durationSeconds?: number;
   resolution?: string;
   aspectRatio?: string;
+  /** Local image paths attached as Flow Ingredients for character consistency. */
+  referenceAssetPaths?: string[];
   estimatedCostPerScene?: number;
   /** Phase 4/7 single-scene live verification / canary — process at most N pending scenes. */
   maxScenes?: number;

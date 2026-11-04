@@ -34,6 +34,10 @@ export interface FlowBrowserSession {
    * Implementations must use browser download events — never invent CDN URLs.
    */
   downloadViaClick(selector: string, destinationPath: string): Promise<void>;
+  /**
+   * Optional: attach local files through a file input / filechooser (Ingredients refs).
+   */
+  attachFiles?(selector: string, filePaths: string[]): Promise<void>;
   close(): Promise<void>;
 }
 

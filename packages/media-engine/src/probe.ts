@@ -10,6 +10,8 @@ export type MediaProbe = {
   hasVideo: boolean;
   hasAudio: boolean;
   formatName: string | null;
+  videoCodec: string | null;
+  audioCodec: string | null;
   raw: unknown;
 };
 
@@ -46,6 +48,7 @@ export async function probeMedia(paths: MediaToolPaths, filePath: string): Promi
     format?: { duration?: string; format_name?: string };
     streams?: Array<{
       codec_type?: string;
+      codec_name?: string;
       width?: number;
       height?: number;
       avg_frame_rate?: string;
@@ -66,8 +69,33 @@ export async function probeMedia(paths: MediaToolPaths, filePath: string): Promi
     hasVideo: Boolean(video),
     hasAudio: Boolean(audio),
     formatName: raw.format?.format_name ?? null,
+    videoCodec: video?.codec_name ?? null,
+    audioCodec: audio?.codec_name ?? null,
     raw,
   };
+}
+
+/** Decode integrity check — does not re-encode; discards frames to null muxer. */
+export async function assertDecodableVideo(
+  paths: MediaToolPaths,
+  filePath: string,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const result = await runCommand(paths.ffmpeg, [
+    '-v',
+    'error',
+    '-i',
+    filePath,
+    '-f',
+    'null',
+    '-',
+  ]);
+  if (result.code !== 0) {
+    return {
+      ok: false,
+      reason: `Decode integrity failed: ${result.stderr || result.stdout || 'ffmpeg non-zero exit'}`,
+    };
+  }
+  return { ok: true };
 }
 
 export async function isReadableVideo(paths: MediaToolPaths, filePath: string): Promise<boolean> {

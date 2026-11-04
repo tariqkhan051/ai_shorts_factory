@@ -86,6 +86,18 @@ FLOW_BASE_URL=https://your-flow-url
 
 If a requested model/duration/resolution/aspect ratio is not visible in the account UI, automation **stops** — it will not silently substitute another option.
 
+### Character consistency (Ingredients)
+
+1. **Create the reference inside Flow (preferred, usually free):** Image mode → character sheet prompt → Generate.  
+   Script: `node scripts/prepare-flow-character-reference.mjs` (keep `FLOW_EXECUTE_LIVE` unset/false).
+2. **Reuse from library** for every video scene: Ingredients → select the existing asset → **Add to prompt**.  
+   Do **not** click **Upload media** again for the same character.
+3. Live video canary refuses to re-upload unless `FLOW_FORCE_REUPLOAD=true`.
+
+If Google shows **“unusual activity”**, stop automation immediately. A human click on **Start generation inside a Playwright-controlled Chrome** still fails the same gate — Google flags the automated session, not only scripted clicks. Do not bypass that gate.
+
+**Default real-Flow path (human-in-the-loop):** set `FLOW_PROVIDER=google-flow-manual`. Use the app **Flow Generation Package** page to copy prompts, generate in your normal Chrome, then upload MP4s for FFprobe verification. Playwright / `google-flow` automation stays in the repo but requires `FLOW_ALLOW_PLAYWRIGHT_AUTOMATION=true` and is off by default.
+
 ### Observed live UI labels (2026-11-04 inspect, no Generate)
 
 Project used: **ASF Canary Inspect** (`https://flow.google.com/project/cd052117-55ba-426e-a396-9eb70d48dbfa`).

@@ -67,12 +67,67 @@ export const createPlaywrightBrowserSession: FlowBrowserSessionFactory = async (
     },
     async selectOption(selector, value) {
       const locator = page.locator(selector).first();
+      const candidates = Array.from(
+        new Set(
+          [
+            value,
+            `${value}s`,
+            `${value} s`,
+            value.replace(/\s*s$/i, ''),
+            value.replace(/p$/i, ''),
+            `${value.replace(/p$/i, '')}p`,
+          ].filter((v) => v.trim().length > 0),
+        ),
+      );
+
       try {
         await locator.selectOption({ label: value });
+        return;
       } catch {
-        await locator.click();
-        await page.getByText(value, { exact: false }).first().click();
+        // Not a native <select> — fall through to menu / assert paths.
       }
+
+      try {
+        await locator.click({ timeout: 2_000 });
+      } catch {
+        // Control may already be open.
+      }
+
+      for (const candidate of candidates) {
+        const option = page
+          .getByRole('option', { name: new RegExp(candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })
+          .or(
+            page.getByRole('menuitem', {
+              name: new RegExp(candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'),
+            }),
+          )
+          .or(
+            page.getByRole('radio', {
+              name: new RegExp(candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'),
+            }),
+          );
+        try {
+          if (await option.first().isVisible({ timeout: 700 })) {
+            await option.first().click();
+            return;
+          }
+        } catch {
+          // try next candidate
+        }
+      }
+
+      // Some Flow controls (e.g. Settings trigger pill "Video · 720p · 8s") expose a
+      // fixed value with no discrete picker — accept when already visible on the control.
+      const text = ((await locator.textContent()) || '').replace(/\s+/g, ' ');
+      const alreadySelected = candidates.some((candidate) =>
+        text.toLowerCase().includes(candidate.toLowerCase()),
+      );
+      if (alreadySelected) {
+        return;
+      }
+      throw new Error(
+        `Unable to select option "${value}" for ${selector}; visible text="${text.slice(0, 120)}"`,
+      );
     },
     async waitForSelector(selector, waitOptions) {
       await page
@@ -129,6 +184,19 @@ export const createPlaywrightBrowserSession: FlowBrowserSessionFactory = async (
         page.locator(selector).first().click(),
       ]);
       await download.saveAs(destinationPath);
+    },
+    async attachFiles(selector, filePaths) {
+      const locator = page.locator(selector).first();
+      const tag = await locator.evaluate((el) => el.tagName.toLowerCase()).catch(() => '');
+      if (tag === 'input') {
+        await locator.setInputFiles(filePaths);
+        return;
+      }
+      const [chooser] = await Promise.all([
+        page.waitForEvent('filechooser', { timeout: 15_000 }),
+        locator.click({ timeout: 10_000 }),
+      ]);
+      await chooser.setFiles(filePaths);
     },
     async close() {
       await context.close();

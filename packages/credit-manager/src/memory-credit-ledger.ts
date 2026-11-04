@@ -13,6 +13,7 @@ type UserCreditState = {
   entries: CreditLedgerEntry[];
   reservations: Map<string, CreditReservation>;
   reserveIdempotency: Map<string, string>;
+  reconcileIdempotency: Map<string, string>;
 };
 
 function nowIso(): string {
@@ -247,20 +248,141 @@ export class MemoryCreditLedger implements CreditLedger {
     amount: number;
     reason: string;
     projectId?: string;
+    idempotencyKey?: string;
   }): Promise<CreditLedgerEntry> {
     const state = this.ensureUser(input.userId);
+    if (input.idempotencyKey) {
+      const existingId = state.reconcileIdempotency.get(input.idempotencyKey);
+      if (existingId) {
+        const existing = state.entries.find((entry) => entry.id === existingId);
+        if (existing) return structuredClone(existing);
+      }
+    }
     const entry: CreditLedgerEntry = {
       id: randomUUID(),
       userId: input.userId,
       projectId: input.projectId,
       entryType: 'MANUAL_RECONCILE',
       amount: input.amount,
-      metadata: { reason: input.reason },
+      metadata: {
+        reason: input.reason,
+        idempotencyKey: input.idempotencyKey,
+        flowSpendAutoVerified: false,
+      },
       createdAt: nowIso(),
     };
     state.entries.push(entry);
     state.configuredAvailable += input.amount;
+    if (input.idempotencyKey) {
+      state.reconcileIdempotency.set(input.idempotencyKey, entry.id);
+    }
     return structuredClone(entry);
+  }
+
+  async recordUnknownConsumption(input: {
+    userId: string;
+    projectId?: string;
+    amount: number | 'unknown';
+    reason: string;
+    idempotencyKey: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<CreditLedgerEntry> {
+    const state = this.ensureUser(input.userId);
+    const existingId = state.reconcileIdempotency.get(input.idempotencyKey);
+    if (existingId) {
+      const existing = state.entries.find((entry) => entry.id === existingId);
+      if (existing) return structuredClone(existing);
+    }
+
+    // Never convert unknown → 0 confirmed spend. Qualitative unknown is flagged in metadata.
+    if (input.amount === 'unknown') {
+      const entry: CreditLedgerEntry = {
+        id: randomUUID(),
+        userId: input.userId,
+        projectId: input.projectId,
+        entryType: 'UNKNOWN_CONSUMPTION',
+        amount: 0,
+        metadata: {
+          reason: input.reason,
+          idempotencyKey: input.idempotencyKey,
+          amountUnknown: true,
+          flowSpendAutoVerified: false,
+          ...(input.metadata ?? {}),
+        },
+        createdAt: nowIso(),
+      };
+      state.entries.push(entry);
+      state.reconcileIdempotency.set(input.idempotencyKey, entry.id);
+      return structuredClone(entry);
+    }
+
+    const magnitude: number = input.amount;
+    if (!(magnitude > 0) || !Number.isFinite(magnitude)) {
+      throw new Error('Unknown consumption amount must be a positive number or "unknown"');
+    }
+
+    const entry: CreditLedgerEntry = {
+      id: randomUUID(),
+      userId: input.userId,
+      projectId: input.projectId,
+      entryType: 'UNKNOWN_CONSUMPTION',
+      amount: -Math.abs(magnitude),
+      metadata: {
+        reason: input.reason,
+        idempotencyKey: input.idempotencyKey,
+        amountUnknown: false,
+        flowSpendAutoVerified: false,
+        ...(input.metadata ?? {}),
+      },
+      createdAt: nowIso(),
+    };
+    state.entries.push(entry);
+    state.reconcileIdempotency.set(input.idempotencyKey, entry.id);
+    return structuredClone(entry);
+  }
+
+  /** Test/helper: replace in-memory state (used by durable ledger hydrate). */
+  importSnapshot(snapshot: {
+    users: Array<{
+      userId: string;
+      configuredAvailable: number;
+      entries: CreditLedgerEntry[];
+      reservations: CreditReservation[];
+      reserveIdempotency: Array<[string, string]>;
+      reconcileIdempotency: Array<[string, string]>;
+    }>;
+  }): void {
+    this.users.clear();
+    for (const row of snapshot.users) {
+      this.users.set(row.userId, {
+        configuredAvailable: row.configuredAvailable,
+        entries: structuredClone(row.entries),
+        reservations: new Map(row.reservations.map((r) => [r.id, structuredClone(r)])),
+        reserveIdempotency: new Map(row.reserveIdempotency),
+        reconcileIdempotency: new Map(row.reconcileIdempotency),
+      });
+    }
+  }
+
+  exportSnapshot(): {
+    users: Array<{
+      userId: string;
+      configuredAvailable: number;
+      entries: CreditLedgerEntry[];
+      reservations: CreditReservation[];
+      reserveIdempotency: Array<[string, string]>;
+      reconcileIdempotency: Array<[string, string]>;
+    }>;
+  } {
+    const users = [...this.users.entries()].map(([userId, state]) => ({
+      userId,
+      configuredAvailable: state.configuredAvailable,
+      entries: structuredClone(state.entries),
+      reservations: [...state.reservations.values()].map((r) => structuredClone(r)),
+      reserveIdempotency: [...state.reserveIdempotency.entries()],
+      reconcileIdempotency: [...state.reconcileIdempotency.entries()],
+    }));
+    return { users };
   }
 
   clear(): void {
@@ -283,6 +405,7 @@ export class MemoryCreditLedger implements CreditLedger {
         entries: [bootstrap],
         reservations: new Map(),
         reserveIdempotency: new Map(),
+        reconcileIdempotency: new Map(),
       };
       this.users.set(userId, state);
     }
@@ -325,10 +448,17 @@ export class MemoryCreditLedger implements CreditLedger {
           confirmedSpent += Math.abs(entry.amount);
           configuredAvailable += entry.amount; // entry.amount is negative
           break;
-        case 'UNKNOWN_CONSUMPTION':
-          unknownConsumption += Math.abs(entry.amount);
-          configuredAvailable += entry.amount; // treat as unavailable until reconciled
+        case 'UNKNOWN_CONSUMPTION': {
+          const qualitative = entry.metadata?.amountUnknown === true;
+          // Qualitative unknown still counts as at least 1 unknown unit for visibility,
+          // without inventing a confirmed spend amount.
+          const bump = qualitative ? 1 : Math.abs(entry.amount);
+          unknownConsumption += bump;
+          if (!qualitative) {
+            configuredAvailable += entry.amount; // negative magnitude reduces available
+          }
           break;
+        }
         default:
           break;
       }

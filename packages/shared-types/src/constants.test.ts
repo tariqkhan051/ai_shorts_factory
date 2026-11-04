@@ -29,6 +29,12 @@ describe('SCENE_STATES', () => {
     expect(SCENE_STATES).toContain('UNKNOWN_SUBMISSION');
     expect(SCENE_STATES).toContain('DOWNLOAD_FAILED');
     expect(SCENE_STATES).toContain('VERIFICATION_FAILED');
+    expect(SCENE_STATES).toContain('PROMPT_READY');
+    expect(SCENE_STATES).toContain('AWAITING_MANUAL_GENERATION');
+    expect(SCENE_STATES).toContain('GENERATED_PENDING_UPLOAD');
+    expect(SCENE_STATES).toContain('UPLOADED_PENDING_VERIFICATION');
+    expect(SCENE_STATES).toContain('REAL_GENERATED');
+    expect(SCENE_STATES).toContain('READY_FOR_ASSEMBLY');
     expect(ASSET_ORIGINS).toEqual(['MOCK', 'REAL_GENERATED']);
     expect(FLOW_SESSION_STATUSES).toContain('AUTHENTICATION_REQUIRED');
   });

@@ -90,7 +90,7 @@ Workers never run generation or FFmpeg inside HTTP request handlers.
 | Generations per video              | 5                                              |
 | Max final duration                 | 59s (target ~30–40s)                           |
 | Default model                      | Veo 3.1 - Lite (configurable via `DEFAULT_GENERATION_MODEL` / `FLOW_MODEL_OPTION_LABEL`; verify in UI) |
-| Default clip duration / resolution | 6s / 720p (Veo Lite Scenes UI also showed 8s / 720p) |
+| Default clip duration / resolution | 8s / 720p (Veo 3.1 - Lite Scenes pill; configurable) |
 | Generation order                   | Sequential; no auto-replacement                |
 | Publishing                         | Download/review only initially                 |
 

@@ -4,6 +4,7 @@ import { BUSINESS_DEFAULTS } from '@ai-shorts-factory/shared-types';
 import { startAssemblyAction } from '@/app/projects/[id]/assemble/actions';
 import { requireUser } from '@/lib/auth';
 import { getAssemblyRecordStore } from '@/lib/assembly/runtime';
+import { evaluateAssemblyGate } from '@/lib/generation/assembly-gate';
 import { AppGenerationStore } from '@/lib/generation/app-generation-store';
 import {
   getCharacterRepository,
@@ -36,6 +37,8 @@ export default async function AssemblePage({ params }: PageProps) {
 
   const story = await stories.getByProject(user.id, id);
   let completedScenes = 0;
+  let gateMode: 'real' | 'mock' | 'undetermined' = 'undetermined';
+  let gateMessage: string | null = null;
   if (story?.approved_at && story.current_version?.screenplay) {
     const store = new AppGenerationStore(projects, stories, characters);
     try {
@@ -44,16 +47,30 @@ export default async function AssemblePage({ params }: PageProps) {
         id,
         story.current_version.screenplay,
       );
-      completedScenes = scenes.filter((scene) => scene.state === 'COMPLETED').length;
+      const gate = evaluateAssemblyGate(scenes);
+      if (gate.ok) {
+        completedScenes = gate.scenes.length;
+        gateMode = gate.mode;
+      } else {
+        gateMode = gate.mode;
+        gateMessage = gate.message;
+        completedScenes = scenes.filter(
+          (scene) =>
+            scene.state === 'COMPLETED' ||
+            scene.state === 'REAL_GENERATED' ||
+            scene.state === 'READY_FOR_ASSEMBLY',
+        ).length;
+      }
     } catch {
       completedScenes = 0;
     }
   }
 
   const assembly = await getAssemblyRecordStore().getByProject(user.id, id);
-  const scenesReady = completedScenes === BUSINESS_DEFAULTS.sceneCount;
+  const scenesReady = gateMode === 'real' || gateMode === 'mock';
   const canAssemble =
     scenesReady &&
+    !gateMessage &&
     (project.workflow_state === 'ASSEMBLY_READY' ||
       project.workflow_state === 'PAUSED' ||
       project.workflow_state === 'FAILED' ||
@@ -73,8 +90,9 @@ export default async function AssemblePage({ params }: PageProps) {
         <p className="max-w-3xl text-muted">
           FFmpeg concatenates five scenes into a vertical {BUSINESS_DEFAULTS.finalVideoTargetWidth}×
           {BUSINESS_DEFAULTS.finalVideoTargetHeight} MP4 under{' '}
-          {BUSINESS_DEFAULTS.finalVideoMaxSeconds}s. Mock scene bytes become synthetic placeholders;
-          they are never labeled as real AI-generated or native 1080p Flow footage.
+          {BUSINESS_DEFAULTS.finalVideoMaxSeconds}s. Real assembly requires five distinct
+          REAL_GENERATED imports (no mock mix, no synthetic placeholders). Mock assembly remains
+          available for COMPLETED mock scenes and is labeled synthetic.
         </p>
         <p className="font-mono text-xs uppercase tracking-wide text-accent">
           {project.workflow_state}
@@ -85,9 +103,14 @@ export default async function AssemblePage({ params }: PageProps) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-medium">Scene readiness</h2>
           <p className="font-mono text-sm text-muted">
-            {completedScenes}/{BUSINESS_DEFAULTS.sceneCount} completed
+            {completedScenes}/{BUSINESS_DEFAULTS.sceneCount} · mode {gateMode}
           </p>
         </div>
+        {gateMessage ? (
+          <pre className="mt-3 whitespace-pre-wrap rounded-md border border-danger/30 bg-danger/5 p-3 text-xs text-danger">
+            {gateMessage}
+          </pre>
+        ) : null}
         <div className="mt-4 grid grid-cols-5 gap-2">
           {Array.from({ length: BUSINESS_DEFAULTS.sceneCount }, (_, index) => {
             const done = index < completedScenes;
