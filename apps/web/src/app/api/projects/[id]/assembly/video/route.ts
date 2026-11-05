@@ -2,7 +2,9 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import { Readable } from 'node:stream';
 import { requireUser } from '@/lib/auth';
 import { assemblyVideoPath } from '@/lib/assembly/file-assembly-store';
+import { slugifyFilename } from '@/lib/assembly/publishing-pack';
 import { getAssemblyRecordStore } from '@/lib/assembly/runtime';
+import { getStoryRepository } from '@/lib/projects/repository';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -23,6 +25,11 @@ export async function GET(request: Request, context: RouteContext) {
     return new Response('Assembly video file missing on disk', { status: 404 });
   }
 
+  const stories = await getStoryRepository();
+  const story = await stories.getByProject(user.id, id);
+  const publishingTitle = story?.current_version?.screenplay?.publishing_metadata?.title;
+  const filename = `${slugifyFilename(publishingTitle ?? '', `project-${id}-final`)}.mp4`;
+
   const stat = statSync(path);
   const download = new URL(request.url).searchParams.get('download') === '1';
   const nodeStream = createReadStream(path);
@@ -37,10 +44,10 @@ export async function GET(request: Request, context: RouteContext) {
       'Accept-Ranges': 'bytes',
       ...(download
         ? {
-            'Content-Disposition': `attachment; filename="project-${id}-final.mp4"`,
+            'Content-Disposition': `attachment; filename="${filename}"`,
           }
         : {
-            'Content-Disposition': `inline; filename="project-${id}-final.mp4"`,
+            'Content-Disposition': `inline; filename="${filename}"`,
           }),
     },
   });

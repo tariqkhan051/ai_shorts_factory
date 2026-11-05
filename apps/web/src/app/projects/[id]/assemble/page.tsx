@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { BUSINESS_DEFAULTS } from '@ai-shorts-factory/shared-types';
 import { startAssemblyAction } from '@/app/projects/[id]/assemble/actions';
+import { AssemblyDownloadPanel } from '@/components/assembly-download-panel';
 import { requireUser } from '@/lib/auth';
 import { getAssemblyRecordStore } from '@/lib/assembly/runtime';
 import { evaluateAssemblyGate } from '@/lib/generation/assembly-gate';
@@ -90,7 +91,7 @@ export default async function AssemblePage({ params }: PageProps) {
   const isComplete = assembly?.status === 'completed';
   const isFailed = assembly?.status === 'failed';
   const videoSrc = `/api/projects/${project.id}/assembly/video`;
-  const downloadSrc = `${videoSrc}?download=1`;
+  const publishing = story?.current_version?.screenplay?.publishing_metadata ?? null;
 
   return (
     <div className="space-y-8">
@@ -177,22 +178,36 @@ export default async function AssemblePage({ params }: PageProps) {
             </video>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <a
-              href={downloadSrc}
-              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background hover:bg-accent/90"
-            >
-              Download MP4
-            </a>
-            <a
-              href={videoSrc}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-md border border-border px-4 py-2 text-sm text-foreground hover:bg-background"
-            >
-              Open in new tab
-            </a>
-          </div>
+          {publishing ? (
+            <AssemblyDownloadPanel
+              projectId={project.id}
+              videoSrc={videoSrc}
+              title={publishing.title}
+              description={publishing.description}
+              tags={publishing.tags}
+            />
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              <a
+                href={`${videoSrc}?download=1`}
+                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background hover:bg-accent/90"
+              >
+                Download MP4
+              </a>
+              <a
+                href={videoSrc}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-md border border-border px-4 py-2 text-sm text-foreground hover:bg-background"
+              >
+                Open in new tab
+              </a>
+              <p className="w-full text-sm text-warning">
+                No publishing metadata on this screenplay yet — re-import or edit the story to add
+                title, description, and tags.
+              </p>
+            </div>
+          )}
 
           <dl className="grid gap-2 text-sm sm:grid-cols-2">
             <div>
