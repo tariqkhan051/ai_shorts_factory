@@ -138,6 +138,8 @@ export type SyncCharactersResult = {
   linked: CharacterRecord[];
   conflicts: LibraryNameConflict[];
   missingReferences: CharacterRecord[];
+  /** Existing characters reused without visual identity mutation. */
+  protectedIdentity?: CharacterRecord[];
 };
 
 export interface StoryRepository {

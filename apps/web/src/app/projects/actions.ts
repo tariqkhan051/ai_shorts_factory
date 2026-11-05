@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { createProjectWithPlatform } from '@ai-shorts-factory/database';
 import {
   createProjectSchema,
   formatProjectErrors,
@@ -9,7 +10,11 @@ import {
 } from '@ai-shorts-factory/validation';
 import { ZodError } from 'zod';
 import { requireUser } from '@/lib/auth';
-import { getProjectRepository, persistMemoryStudioNow } from '@/lib/projects/repository';
+import {
+  getContentPlatformDeps,
+  getProjectRepository,
+  persistMemoryStudioNow,
+} from '@/lib/projects/repository';
 
 export type ActionState = {
   ok: boolean;
@@ -44,8 +49,11 @@ export async function createProjectAction(
       },
     });
 
-    const repo = await getProjectRepository();
-    const project = await repo.create(user.id, payload);
+    const { project } = await createProjectWithPlatform(
+      await getContentPlatformDeps(),
+      user.id,
+      payload,
+    );
     await persistMemoryStudioNow();
 
     revalidatePath('/');

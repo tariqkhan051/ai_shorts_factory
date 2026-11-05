@@ -33,6 +33,12 @@ function mapRow(row: ProjectRow): ProjectRecord {
     workflow_state: row.workflow_state,
     notes: row.notes,
     captions_on_video: Boolean(row.captions_on_video),
+    brand_id: row.brand_id ?? null,
+    niche: row.niche ?? '',
+    content_purpose: row.content_purpose ?? '',
+    universe_context: row.universe_context ?? '',
+    dna_current_version: row.dna_current_version ?? 0,
+    legacy_single_video: row.legacy_single_video ?? Boolean(normalizeInput(row.project_inputs)),
     created_at: row.created_at,
     updated_at: row.updated_at,
     deleted_at: row.deleted_at,
@@ -79,6 +85,7 @@ export class SupabaseProjectRepository implements ProjectRepository {
   }
 
   async create(userId: string, input: CreateProjectInput): Promise<ProjectRecord> {
+    const hasBrief = Boolean(input.input?.idea?.trim() || input.initial_video_concept?.trim());
     const { data: project, error: projectError } = await this.client
       .from('projects')
       .insert({
@@ -90,6 +97,12 @@ export class SupabaseProjectRepository implements ProjectRepository {
         target_audience: input.target_audience ?? '',
         notes: input.notes ?? '',
         captions_on_video: input.captions_on_video ?? false,
+        brand_id: input.brand_id ?? null,
+        niche: input.niche ?? '',
+        content_purpose: input.content_purpose ?? '',
+        universe_context: input.universe_context ?? '',
+        dna_current_version: 0,
+        legacy_single_video: hasBrief,
         workflow_state: 'IDEA_SUBMITTED',
       })
       .select('*')
@@ -99,21 +112,27 @@ export class SupabaseProjectRepository implements ProjectRepository {
       throw new Error(`Failed to create project: ${projectError?.message ?? 'unknown error'}`);
     }
 
-    const { data: projectInput, error: inputError } = await this.client
-      .from('project_inputs')
-      .insert({
-        project_id: project.id,
-        idea: input.input.idea,
-        existing_story: input.input.existing_story ?? '',
-        additional_instructions: input.input.additional_instructions ?? '',
-        character_reference_notes: input.input.character_reference_notes ?? '',
-      })
-      .select('*')
-      .single();
+    let projectInput: ProjectInputRecord | null = null;
+    const idea =
+      input.input?.idea?.trim() || input.initial_video_concept?.trim() || '';
+    if (idea) {
+      const { data, error: inputError } = await this.client
+        .from('project_inputs')
+        .insert({
+          project_id: project.id,
+          idea,
+          existing_story: input.input?.existing_story ?? '',
+          additional_instructions: input.input?.additional_instructions ?? '',
+          character_reference_notes: input.input?.character_reference_notes ?? '',
+        })
+        .select('*')
+        .single();
 
-    if (inputError || !projectInput) {
-      await this.client.from('projects').delete().eq('id', project.id);
-      throw new Error(`Failed to save project input: ${inputError?.message ?? 'unknown error'}`);
+      if (inputError || !data) {
+        await this.client.from('projects').delete().eq('id', project.id);
+        throw new Error(`Failed to save project input: ${inputError?.message ?? 'unknown error'}`);
+      }
+      projectInput = data as ProjectInputRecord;
     }
 
     await this.client.from('audit_logs').insert({
@@ -127,7 +146,7 @@ export class SupabaseProjectRepository implements ProjectRepository {
 
     return mapRow({
       ...(project as ProjectRow),
-      project_inputs: projectInput as ProjectInputRecord,
+      project_inputs: projectInput,
     });
   }
 
@@ -150,6 +169,12 @@ export class SupabaseProjectRepository implements ProjectRepository {
     if (input.notes !== undefined) projectPatch.notes = input.notes;
     if (input.captions_on_video !== undefined) {
       projectPatch.captions_on_video = input.captions_on_video;
+    }
+    if (input.brand_id !== undefined) projectPatch.brand_id = input.brand_id;
+    if (input.niche !== undefined) projectPatch.niche = input.niche;
+    if (input.content_purpose !== undefined) projectPatch.content_purpose = input.content_purpose;
+    if (input.universe_context !== undefined) {
+      projectPatch.universe_context = input.universe_context;
     }
 
     if (Object.keys(projectPatch).length > 0) {
@@ -277,6 +302,60 @@ export class SupabaseProjectRepository implements ProjectRepository {
     if (!updated) {
       throw new Error('Project disappeared after workflow update');
     }
+    return updated;
+  }
+
+  async assignBrand(
+    userId: string,
+    projectId: string,
+    brandId: string,
+  ): Promise<ProjectRecord> {
+    const existing = await this.getById(userId, projectId);
+    if (!existing) throw new Error('Project not found');
+    const { error } = await this.client
+      .from('projects')
+      .update({ brand_id: brandId })
+      .eq('id', projectId)
+      .eq('user_id', userId);
+    if (error) throw new Error(`Failed to assign brand: ${error.message}`);
+    const updated = await this.getById(userId, projectId);
+    if (!updated) throw new Error('Project disappeared after brand assign');
+    return updated;
+  }
+
+  async setDnaVersion(
+    userId: string,
+    projectId: string,
+    version: number,
+  ): Promise<ProjectRecord> {
+    const existing = await this.getById(userId, projectId);
+    if (!existing) throw new Error('Project not found');
+    const { error } = await this.client
+      .from('projects')
+      .update({ dna_current_version: version })
+      .eq('id', projectId)
+      .eq('user_id', userId);
+    if (error) throw new Error(`Failed to set DNA version: ${error.message}`);
+    const updated = await this.getById(userId, projectId);
+    if (!updated) throw new Error('Project disappeared after DNA version update');
+    return updated;
+  }
+
+  async setLegacySingleVideo(
+    userId: string,
+    projectId: string,
+    value: boolean,
+  ): Promise<ProjectRecord> {
+    const existing = await this.getById(userId, projectId);
+    if (!existing) throw new Error('Project not found');
+    const { error } = await this.client
+      .from('projects')
+      .update({ legacy_single_video: value })
+      .eq('id', projectId)
+      .eq('user_id', userId);
+    if (error) throw new Error(`Failed to set legacy_single_video: ${error.message}`);
+    const updated = await this.getById(userId, projectId);
+    if (!updated) throw new Error('Project disappeared after legacy flag update');
     return updated;
   }
 }

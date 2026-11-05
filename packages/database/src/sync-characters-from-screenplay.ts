@@ -11,7 +11,12 @@ import type {
 
 /**
  * Persist screenplay cast into project characters.
- * Never silently overwrites a reusable library character — name collisions become conflicts.
+ *
+ * Rules:
+ * - Reuse existing project / library character IDs — never duplicate.
+ * - Never overwrite an existing character's visual identity from a screenplay.
+ * - New characters are created as project-scoped drafts (not silently promoted to library).
+ * - Name collisions with library characters become conflicts for operator approval.
  */
 export async function syncCharactersFromScreenplay(
   characters: CharacterRepository,
@@ -28,11 +33,13 @@ export async function syncCharactersFromScreenplay(
       .filter((c) => c.screenplay_character_id)
       .map((c) => [c.screenplay_character_id!, c]),
   );
+  const byStableId = new Map(linked.map((c) => [c.id, c]));
   const byName = new Map(linked.map((c) => [c.name.trim().toLowerCase(), c]));
 
   const created: CharacterRecord[] = [];
   const updated: CharacterRecord[] = [];
   const linkedOut: CharacterRecord[] = [];
+  const protectedIdentity: CharacterRecord[] = [];
   const conflicts: SyncCharactersResult['conflicts'] = [];
   const keepIds = new Set<string>();
   const usedIds = new Set<string>();
@@ -44,30 +51,25 @@ export async function syncCharactersFromScreenplay(
     const nameKey = cast.name.trim().toLowerCase();
     const visualStructured = cast.visual_identity;
     void formatVisualIdentity(visualStructured);
-    const clothing = cast.clothing || visualStructured.clothing || '';
-    const appearance = cast.appearance_details || visualStructured.distinctive_features || '';
 
+    // Match by stable DB id, screenplay slug, or name within this project.
     const existingLinked =
-      byScreenplayId.get(screenplayId) ?? byName.get(nameKey) ?? null;
+      byStableId.get(screenplayId) ??
+      byScreenplayId.get(screenplayId) ??
+      byName.get(nameKey) ??
+      null;
 
     if (existingLinked) {
+      // Protect visual identity — only refresh soft metadata that does not redefine look.
       const next = await characters.update(userId, existingLinked.id, {
-        name: cast.name,
-        description: cast.description,
-        visual_identity_structured: visualStructured,
-        clothing,
-        appearance_details: appearance,
-        screenplay_character_id: screenplayId,
-        role: cast.role,
-        age_range: cast.age_range,
-        continuity_rules: cast.continuity_rules,
-        reference_image_prompt: cast.reference_image_prompt,
-        voice_description: cast.voice_description,
-        dialogue_style: cast.dialogue_style,
-        version_note: 'Synced from screenplay import',
+        screenplay_character_id: existingLinked.screenplay_character_id || screenplayId,
+        role: cast.role || existingLinked.role,
+        age_range: cast.age_range || existingLinked.age_range,
+        // description may clarify usage but never replace locked visual fields
+        version_note: 'Linked from screenplay (identity protected)',
       });
       keepIds.add(next.id);
-      updated.push(next);
+      protectedIdentity.push(next);
       linkedOut.push(next);
       continue;
     }
@@ -79,28 +81,13 @@ export async function syncCharactersFromScreenplay(
         screenplayName: cast.name,
         libraryCharacter: libraryMatch,
       });
-      // Create a project-scoped copy so import still progresses; operator can replace via Reuse.
-      const projectCopy = await characters.create(userId, {
-        name: cast.name,
-        description: cast.description,
-        visual_identity_structured: visualStructured,
-        clothing,
-        appearance_details: appearance,
-        screenplay_character_id: screenplayId,
-        role: cast.role,
-        age_range: cast.age_range,
-        continuity_rules: cast.continuity_rules,
-        reference_image_prompt: cast.reference_image_prompt,
-        voice_description: cast.voice_description,
-        dialogue_style: cast.dialogue_style,
-        in_library: false,
-      });
-      await characters.linkToProject(userId, projectId, projectCopy.id);
-      keepIds.add(projectCopy.id);
-      created.push(projectCopy);
-      linkedOut.push(projectCopy);
+      // Do not create a divergent copy that overwrites library identity.
+      // Operator must explicitly Reuse the library character.
       continue;
     }
+
+    const clothing = cast.clothing || visualStructured.clothing || '';
+    const appearance = cast.appearance_details || visualStructured.distinctive_features || '';
 
     const createdCharacter = await characters.create(userId, {
       name: cast.name,
@@ -131,13 +118,21 @@ export async function syncCharactersFromScreenplay(
       await characters.unlinkFromProject(userId, projectId, existing.id);
       continue;
     }
+    // Keep proposed characters that still lack refs only if they appear in conflicts path — otherwise unlink orphans without refs that were dropped.
     await characters.unlinkFromProject(userId, projectId, existing.id);
     await characters.delete(userId, existing.id);
   }
 
   const missingReferences = linkedOut.filter((c) => !c.primary_reference_asset_id);
 
-  return { created, updated, linked: linkedOut, conflicts, missingReferences };
+  return {
+    created,
+    updated,
+    linked: linkedOut,
+    conflicts,
+    missingReferences,
+    protectedIdentity,
+  };
 }
 
 export function scenesForCharacter(

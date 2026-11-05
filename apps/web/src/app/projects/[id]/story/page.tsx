@@ -14,11 +14,15 @@ import {
   markWaitingForChatGptAction,
 } from '@/app/projects/[id]/story/actions';
 import { requireUser } from '@/lib/auth';
+import { buildPromptContext } from '@/lib/projects/prompt-context';
 import {
   getCharacterRepository,
+  getEnvironmentRepository,
+  getProjectDnaRepository,
   getProjectRepository,
   getSceneMap,
   getStoryRepository,
+  getVideoRepository,
 } from '@/lib/projects/repository';
 import { buildProjectDashboard } from '@/lib/projects/workflow-progress';
 
@@ -38,33 +42,24 @@ export default async function StoryStudioPage({ params }: PageProps) {
     notFound();
   }
 
-  const [story, linkedCharacters] = await Promise.all([
+  const [story, linkedCharacters, dna, environments, legacyVideo] = await Promise.all([
     stories.getByProject(user.id, id),
     characters.listByProject(user.id, id),
+    (await getProjectDnaRepository()).getCurrent(user.id, id),
+    (await getEnvironmentRepository()).listByProject(user.id, id),
+    (await getVideoRepository()).getLegacyVideoForProject(user.id, id),
   ]);
 
-  const prompt = buildChatGptProductionPrompt({
-    name: project.name,
-    category: project.category,
-    visual_style: project.visual_style,
-    language: project.language,
-    target_audience: project.target_audience,
-    idea: project.input?.idea ?? '',
-    existing_story: project.input?.existing_story,
-    additional_instructions: project.input?.additional_instructions,
-    character_reference_notes: project.input?.character_reference_notes,
-    captions_on_video: project.captions_on_video,
-    characters: linkedCharacters.map((character) => ({
-      name: character.name,
-      description: character.description,
-      visual_identity: character.visual_identity,
-      clothing: character.clothing,
-      appearance_details: character.appearance_details,
-      role: character.role,
-      age_range: character.age_range,
-      continuity_rules: character.continuity_rules,
-    })),
-  });
+  const prompt = buildChatGptProductionPrompt(
+    buildPromptContext({
+      project,
+      dna: dna?.snapshot,
+      dnaVersion: dna?.version ?? project.dna_current_version,
+      video: legacyVideo,
+      characters: linkedCharacters,
+      environments,
+    }),
+  );
 
   const screenplay = story?.current_version?.screenplay ?? null;
   const canApprove =

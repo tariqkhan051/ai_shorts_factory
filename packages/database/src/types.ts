@@ -24,6 +24,18 @@ export type ProjectRecord = {
   notes: string;
   /** Burn on-screen captions from screenplay text_overlay during final assembly. */
   captions_on_video: boolean;
+  /** Primary Brand association (nullable during partial migration). */
+  brand_id: string | null;
+  niche: string;
+  content_purpose: string;
+  universe_context: string;
+  /** Current Project DNA version number (immutable history stored separately). */
+  dna_current_version: number;
+  /**
+   * True when this project was migrated from the pre-platform era (one video).
+   * Production routes may auto-resolve the sole video for compatibility.
+   */
+  legacy_single_video: boolean;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -48,4 +60,12 @@ export interface ProjectRepository {
   softDelete(userId: string, projectId: string): Promise<void>;
   getDashboardStats(userId: string): Promise<DashboardStats>;
   setWorkflowState(userId: string, projectId: string, state: WorkflowState): Promise<ProjectRecord>;
+  /** Content-platform helpers (memory + supabase). */
+  assignBrand?(userId: string, projectId: string, brandId: string): Promise<ProjectRecord>;
+  setDnaVersion?(userId: string, projectId: string, version: number): Promise<ProjectRecord>;
+  setLegacySingleVideo?(
+    userId: string,
+    projectId: string,
+    value: boolean,
+  ): Promise<ProjectRecord>;
 }

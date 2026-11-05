@@ -17,7 +17,18 @@ export const createProjectSchema = z.object({
   notes: z.string().trim().max(4000).default(''),
   /** When true, ChatGPT must supply per-scene captions and assembly burns them in. */
   captions_on_video: z.boolean().default(false),
-  input: projectInputSchema,
+  /** Optional Brand association; a default Personal brand is used when omitted. */
+  brand_id: z.string().uuid().optional(),
+  niche: z.string().trim().max(240).default(''),
+  content_purpose: z.string().trim().max(1000).default(''),
+  universe_context: z.string().trim().max(20000).default(''),
+  /**
+   * Creative brief for the first video (legacy-compatible).
+   * When provided, creates Project + Video #1. Omit for DNA-only project creation.
+   */
+  input: projectInputSchema.optional(),
+  /** Explicit first-video concept when not using legacy `input`. */
+  initial_video_concept: z.string().trim().max(8000).optional(),
 });
 
 export const updateProjectSchema = z.object({
@@ -28,12 +39,16 @@ export const updateProjectSchema = z.object({
   target_audience: z.string().trim().max(240).optional(),
   notes: z.string().trim().max(4000).optional(),
   captions_on_video: z.boolean().optional(),
+  brand_id: z.string().uuid().nullable().optional(),
+  niche: z.string().trim().max(240).optional(),
+  content_purpose: z.string().trim().max(1000).optional(),
+  universe_context: z.string().trim().max(20000).optional(),
   input: projectInputSchema.partial().optional(),
 });
 
 export type ProjectInputPayload = z.infer<typeof projectInputSchema>;
-export type CreateProjectPayload = z.infer<typeof createProjectSchema>;
-export type UpdateProjectPayload = z.infer<typeof updateProjectSchema>;
+export type CreateProjectPayload = z.input<typeof createProjectSchema>;
+export type UpdateProjectPayload = z.input<typeof updateProjectSchema>;
 
 export function parseCreateProject(input: unknown): CreateProjectPayload {
   return createProjectSchema.parse(input);

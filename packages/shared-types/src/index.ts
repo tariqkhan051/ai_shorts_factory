@@ -13,5 +13,18 @@ export {
   type VisualStyle,
 } from './workflow-states.js';
 
+export {
+  SOCIAL_PLATFORMS,
+  SOCIAL_CONNECTION_STATUSES,
+  DISTRIBUTION_STATUSES,
+  VIDEO_PORTFOLIO_STATES,
+  ENVIRONMENT_KINDS,
+  type SocialPlatform,
+  type SocialConnectionStatus,
+  type DistributionStatus,
+  type VideoPortfolioState,
+  type EnvironmentKind,
+} from './content-platform.js';
+
 export { BUSINESS_DEFAULTS, PHASE } from './constants.js';
 export { createLogger, type Logger, type LogLevel, type StructuredLogFields } from './logger.js';

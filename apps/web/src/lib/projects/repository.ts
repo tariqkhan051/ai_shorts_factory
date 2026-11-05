@@ -1,16 +1,35 @@
 import {
+  MemoryBrandRepository,
   MemoryCharacterRepository,
+  MemoryDistributionRepository,
+  MemoryEnvironmentRepository,
+  MemoryProjectDnaRepository,
   MemoryProjectRepository,
   MemoryReferenceAssetRepository,
+  MemorySocialAccountRepository,
   MemoryStoryRepository,
+  MemoryVideoRepository,
+  SupabaseBrandRepository,
   SupabaseCharacterRepository,
+  SupabaseDistributionRepository,
+  SupabaseEnvironmentRepository,
+  SupabaseProjectDnaRepository,
   SupabaseProjectRepository,
   SupabaseReferenceAssetRepository,
+  SupabaseSocialAccountRepository,
   SupabaseStoryRepository,
+  SupabaseVideoRepository,
+  migrateLegacyProjectsToContentPlatform,
+  type BrandRepository,
   type CharacterRepository,
+  type DistributionRepository,
+  type EnvironmentRepository,
+  type ProjectDnaRepository,
   type ProjectRepository,
   type ReferenceAssetRepository,
+  type SocialAccountRepository,
   type StoryRepository,
+  type VideoRepository,
   readDatabaseEnv,
 } from '@ai-shorts-factory/database';
 import type { GenerationSceneRecord } from '@ai-shorts-factory/workflow-engine';
@@ -25,10 +44,18 @@ const globalForStudio = globalThis as typeof globalThis & {
   __asfMemoryStories?: MemoryStoryRepository;
   __asfMemoryCharacters?: MemoryCharacterRepository;
   __asfMemoryReferences?: MemoryReferenceAssetRepository;
+  __asfMemoryBrands?: MemoryBrandRepository;
+  __asfMemoryDna?: MemoryProjectDnaRepository;
+  __asfMemoryVideos?: MemoryVideoRepository;
+  __asfMemoryEnvironments?: MemoryEnvironmentRepository;
+  __asfMemorySocial?: MemorySocialAccountRepository;
+  __asfMemoryDistributions?: MemoryDistributionRepository;
   __asfScenes?: Map<string, GenerationSceneRecord[]>;
   __asfMemoryHydrated?: boolean;
   __asfMemoryPersistTimer?: ReturnType<typeof setTimeout>;
 };
+
+const MEMORY_USER_ID = 'local-dev-user';
 
 export function getSceneMap(): Map<string, GenerationSceneRecord[]> {
   if (!globalForStudio.__asfScenes) {
@@ -67,16 +94,87 @@ function getMemoryReferences(): MemoryReferenceAssetRepository {
   return globalForStudio.__asfMemoryReferences;
 }
 
-async function ensureMemoryHydrated(): Promise<void> {
-  if (globalForStudio.__asfMemoryHydrated) return;
-  globalForStudio.__asfMemoryHydrated = true;
-  await loadMemoryStudioSnapshot({
+function getMemoryBrands(): MemoryBrandRepository {
+  if (!globalForStudio.__asfMemoryBrands) {
+    globalForStudio.__asfMemoryBrands = new MemoryBrandRepository();
+  }
+  return globalForStudio.__asfMemoryBrands;
+}
+
+function getMemoryDna(): MemoryProjectDnaRepository {
+  if (!globalForStudio.__asfMemoryDna) {
+    globalForStudio.__asfMemoryDna = new MemoryProjectDnaRepository(getMemoryProjects());
+  }
+  return globalForStudio.__asfMemoryDna;
+}
+
+function getMemoryVideos(): MemoryVideoRepository {
+  if (!globalForStudio.__asfMemoryVideos) {
+    globalForStudio.__asfMemoryVideos = new MemoryVideoRepository(getMemoryProjects());
+  }
+  return globalForStudio.__asfMemoryVideos;
+}
+
+function getMemoryEnvironments(): MemoryEnvironmentRepository {
+  if (!globalForStudio.__asfMemoryEnvironments) {
+    globalForStudio.__asfMemoryEnvironments = new MemoryEnvironmentRepository(getMemoryProjects());
+  }
+  return globalForStudio.__asfMemoryEnvironments;
+}
+
+function getMemorySocial(): MemorySocialAccountRepository {
+  if (!globalForStudio.__asfMemorySocial) {
+    globalForStudio.__asfMemorySocial = new MemorySocialAccountRepository(getMemoryProjects());
+  }
+  return globalForStudio.__asfMemorySocial;
+}
+
+function getMemoryDistributions(): MemoryDistributionRepository {
+  if (!globalForStudio.__asfMemoryDistributions) {
+    globalForStudio.__asfMemoryDistributions = new MemoryDistributionRepository(
+      getMemoryVideos(),
+      getMemorySocial(),
+    );
+  }
+  return globalForStudio.__asfMemoryDistributions;
+}
+
+function memoryPersistPayload() {
+  return {
     projects: getMemoryProjects(),
     stories: getMemoryStories(),
     characters: getMemoryCharacters(),
     references: getMemoryReferences(),
     scenes: getSceneMap(),
-  });
+    brands: getMemoryBrands(),
+    dna: getMemoryDna(),
+    videos: getMemoryVideos(),
+    environments: getMemoryEnvironments(),
+    social: getMemorySocial(),
+    distributions: getMemoryDistributions(),
+  };
+}
+
+async function ensureMemoryHydrated(): Promise<void> {
+  if (globalForStudio.__asfMemoryHydrated) return;
+  globalForStudio.__asfMemoryHydrated = true;
+  await loadMemoryStudioSnapshot(memoryPersistPayload());
+
+  const userIds = new Set(
+    getMemoryProjects()
+      .exportAll()
+      .map((p) => p.user_id),
+  );
+  if (userIds.size === 0) userIds.add(MEMORY_USER_ID);
+  for (const userId of userIds) {
+    await migrateLegacyProjectsToContentPlatform({
+      brands: getMemoryBrands(),
+      projects: getMemoryProjects(),
+      dna: getMemoryDna(),
+      videos: getMemoryVideos(),
+      userId,
+    });
+  }
 }
 
 export function scheduleMemoryStudioPersist(): void {
@@ -85,13 +183,7 @@ export function scheduleMemoryStudioPersist(): void {
     clearTimeout(globalForStudio.__asfMemoryPersistTimer);
   }
   globalForStudio.__asfMemoryPersistTimer = setTimeout(() => {
-    void saveMemoryStudioSnapshot({
-      projects: getMemoryProjects(),
-      stories: getMemoryStories(),
-      characters: getMemoryCharacters(),
-      references: getMemoryReferences(),
-      scenes: getSceneMap(),
-    }).catch(() => {
+    void saveMemoryStudioSnapshot(memoryPersistPayload()).catch(() => {
       // Persistence failures must not break request paths.
     });
   }, 50);
@@ -99,13 +191,15 @@ export function scheduleMemoryStudioPersist(): void {
 
 export async function persistMemoryStudioNow(): Promise<void> {
   if (readDatabaseEnv(process.env).store !== 'memory') return;
-  await saveMemoryStudioSnapshot({
-    projects: getMemoryProjects(),
-    stories: getMemoryStories(),
-    characters: getMemoryCharacters(),
-    references: getMemoryReferences(),
-    scenes: getSceneMap(),
-  });
+  await saveMemoryStudioSnapshot(memoryPersistPayload());
+}
+
+async function requireSupabase() {
+  const supabase = await createClient();
+  if (!supabase) {
+    throw new Error('Supabase client unavailable while PROJECT_STORE=supabase');
+  }
+  return supabase;
 }
 
 export async function getProjectRepository(): Promise<ProjectRepository> {
@@ -114,11 +208,7 @@ export async function getProjectRepository(): Promise<ProjectRepository> {
     await ensureMemoryHydrated();
     return getMemoryProjects();
   }
-  const supabase = await createClient();
-  if (!supabase) {
-    throw new Error('Supabase client unavailable while PROJECT_STORE=supabase');
-  }
-  return new SupabaseProjectRepository(supabase);
+  return new SupabaseProjectRepository(await requireSupabase());
 }
 
 export async function getStoryRepository(): Promise<StoryRepository> {
@@ -127,10 +217,7 @@ export async function getStoryRepository(): Promise<StoryRepository> {
     await ensureMemoryHydrated();
     return getMemoryStories();
   }
-  const supabase = await createClient();
-  if (!supabase) {
-    throw new Error('Supabase client unavailable while PROJECT_STORE=supabase');
-  }
+  const supabase = await requireSupabase();
   const projects = new SupabaseProjectRepository(supabase);
   return new SupabaseStoryRepository(supabase, projects);
 }
@@ -141,10 +228,7 @@ export async function getCharacterRepository(): Promise<CharacterRepository> {
     await ensureMemoryHydrated();
     return getMemoryCharacters();
   }
-  const supabase = await createClient();
-  if (!supabase) {
-    throw new Error('Supabase client unavailable while PROJECT_STORE=supabase');
-  }
+  const supabase = await requireSupabase();
   const projects = new SupabaseProjectRepository(supabase);
   return new SupabaseCharacterRepository(supabase, projects);
 }
@@ -155,11 +239,96 @@ export async function getReferenceAssetRepository(): Promise<ReferenceAssetRepos
     await ensureMemoryHydrated();
     return getMemoryReferences();
   }
-  const supabase = await createClient();
-  if (!supabase) {
-    throw new Error('Supabase client unavailable while PROJECT_STORE=supabase');
-  }
+  const supabase = await requireSupabase();
   const projects = new SupabaseProjectRepository(supabase);
   const characters = new SupabaseCharacterRepository(supabase, projects);
   return new SupabaseReferenceAssetRepository(supabase, characters);
+}
+
+export async function getBrandRepository(): Promise<BrandRepository> {
+  const env = readDatabaseEnv(process.env);
+  if (env.store === 'memory') {
+    await ensureMemoryHydrated();
+    return getMemoryBrands();
+  }
+  return new SupabaseBrandRepository(await requireSupabase());
+}
+
+export async function getProjectDnaRepository(): Promise<ProjectDnaRepository> {
+  const env = readDatabaseEnv(process.env);
+  if (env.store === 'memory') {
+    await ensureMemoryHydrated();
+    return getMemoryDna();
+  }
+  const supabase = await requireSupabase();
+  const projects = new SupabaseProjectRepository(supabase);
+  return new SupabaseProjectDnaRepository(supabase, projects);
+}
+
+export async function getVideoRepository(): Promise<VideoRepository> {
+  const env = readDatabaseEnv(process.env);
+  if (env.store === 'memory') {
+    await ensureMemoryHydrated();
+    return getMemoryVideos();
+  }
+  const supabase = await requireSupabase();
+  const projects = new SupabaseProjectRepository(supabase);
+  return new SupabaseVideoRepository(supabase, projects);
+}
+
+export async function getEnvironmentRepository(): Promise<EnvironmentRepository> {
+  const env = readDatabaseEnv(process.env);
+  if (env.store === 'memory') {
+    await ensureMemoryHydrated();
+    return getMemoryEnvironments();
+  }
+  const supabase = await requireSupabase();
+  const projects = new SupabaseProjectRepository(supabase);
+  return new SupabaseEnvironmentRepository(supabase, projects);
+}
+
+export async function getSocialAccountRepository(): Promise<SocialAccountRepository> {
+  const env = readDatabaseEnv(process.env);
+  if (env.store === 'memory') {
+    await ensureMemoryHydrated();
+    return getMemorySocial();
+  }
+  const supabase = await requireSupabase();
+  const projects = new SupabaseProjectRepository(supabase);
+  return new SupabaseSocialAccountRepository(supabase, projects);
+}
+
+export async function getDistributionRepository(): Promise<DistributionRepository> {
+  const env = readDatabaseEnv(process.env);
+  if (env.store === 'memory') {
+    await ensureMemoryHydrated();
+    return getMemoryDistributions();
+  }
+  const supabase = await requireSupabase();
+  const projects = new SupabaseProjectRepository(supabase);
+  const videos = new SupabaseVideoRepository(supabase, projects);
+  const social = new SupabaseSocialAccountRepository(supabase, projects);
+  return new SupabaseDistributionRepository(supabase, videos, social);
+}
+
+/** Platform deps for createProjectWithPlatform / createVideoInProject (memory or supabase). */
+export async function getContentPlatformDeps() {
+  const env = readDatabaseEnv(process.env);
+  if (env.store === 'memory') {
+    await ensureMemoryHydrated();
+    return {
+      brands: getMemoryBrands(),
+      projects: getMemoryProjects(),
+      dna: getMemoryDna(),
+      videos: getMemoryVideos(),
+    };
+  }
+  const supabase = await requireSupabase();
+  const projects = new SupabaseProjectRepository(supabase);
+  return {
+    brands: new SupabaseBrandRepository(supabase),
+    projects,
+    dna: new SupabaseProjectDnaRepository(supabase, projects),
+    videos: new SupabaseVideoRepository(supabase, projects),
+  };
 }

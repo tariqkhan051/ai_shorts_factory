@@ -83,9 +83,12 @@ describe('syncCharactersFromScreenplay', () => {
       createSampleScreenplay(),
     );
     expect(sync.conflicts.some((c) => c.screenplayName === 'Rina')).toBe(true);
+    // No divergent project copy — operator must explicitly reuse the library character.
+    expect(sync.created.every((c) => c.name !== 'Rina')).toBe(true);
 
     const refreshedLibrary = await characters.getById(userId, library.id);
     expect(refreshedLibrary?.description).toBe('Library Rina');
+    expect(refreshedLibrary?.visual_identity).toBe('Library look');
     expect(refreshedLibrary?.primary_reference_asset_id).toBeTruthy();
 
     const reused = await characters.reuseLibraryCharacter(
@@ -95,6 +98,52 @@ describe('syncCharactersFromScreenplay', () => {
       'rina',
     );
     expect(reused.id).toBe(library.id);
+  });
+
+  it('protects existing character visual identity on re-import', async () => {
+    const project = await projects.create(userId, {
+      name: 'Neon',
+      category: 'cinematic',
+      input: {
+        idea: 'x',
+        existing_story: '',
+        additional_instructions: '',
+        character_reference_notes: '',
+      },
+    });
+    await syncCharactersFromScreenplay(
+      characters,
+      userId,
+      project.id,
+      createSampleScreenplay(),
+    );
+    const linked = await characters.listByProject(userId, project.id);
+    const rina = linked.find((c) => c.screenplay_character_id === 'rina')!;
+    await characters.update(userId, rina.id, {
+      visual_identity_structured: {
+        face: '',
+        hair: '',
+        eyes: '',
+        skin: '',
+        clothing: '',
+        body: '',
+        distinctive_features: 'Approved locked look',
+        accessories: '',
+      },
+      description: 'Approved description',
+      version_note: 'Operator lock',
+    });
+
+    const second = await syncCharactersFromScreenplay(
+      characters,
+      userId,
+      project.id,
+      createSampleScreenplay({ title: 'Reimport' }),
+    );
+    expect(second.protectedIdentity?.some((c) => c.id === rina.id)).toBe(true);
+    const after = await characters.getById(userId, rina.id);
+    expect(after?.visual_identity).toContain('Approved locked look');
+    expect(after?.description).toBe('Approved description');
   });
 
   it('keeps reference assets separate when syncing character text', async () => {

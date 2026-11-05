@@ -38,16 +38,30 @@ export class MemoryProjectRepository implements ProjectRepository {
   async create(userId: string, input: CreateProjectInput): Promise<ProjectRecord> {
     const timestamp = nowIso();
     const projectId = randomUUID();
-    const projectInput: ProjectInputRecord = {
-      id: randomUUID(),
-      project_id: projectId,
-      idea: input.input.idea,
-      existing_story: input.input.existing_story ?? '',
-      additional_instructions: input.input.additional_instructions ?? '',
-      character_reference_notes: input.input.character_reference_notes ?? '',
-      created_at: timestamp,
-      updated_at: timestamp,
-    };
+    const brief = input.input;
+    const projectInput: ProjectInputRecord | null = brief
+      ? {
+          id: randomUUID(),
+          project_id: projectId,
+          idea: brief.idea,
+          existing_story: brief.existing_story ?? '',
+          additional_instructions: brief.additional_instructions ?? '',
+          character_reference_notes: brief.character_reference_notes ?? '',
+          created_at: timestamp,
+          updated_at: timestamp,
+        }
+      : input.initial_video_concept
+        ? {
+            id: randomUUID(),
+            project_id: projectId,
+            idea: input.initial_video_concept,
+            existing_story: '',
+            additional_instructions: '',
+            character_reference_notes: '',
+            created_at: timestamp,
+            updated_at: timestamp,
+          }
+        : null;
 
     const project: ProjectRecord = {
       id: projectId,
@@ -60,6 +74,12 @@ export class MemoryProjectRepository implements ProjectRepository {
       workflow_state: 'IDEA_SUBMITTED',
       notes: input.notes ?? '',
       captions_on_video: input.captions_on_video ?? false,
+      brand_id: input.brand_id ?? null,
+      niche: input.niche ?? '',
+      content_purpose: input.content_purpose ?? '',
+      universe_context: input.universe_context ?? '',
+      dna_current_version: 0,
+      legacy_single_video: Boolean(projectInput),
       created_at: timestamp,
       updated_at: timestamp,
       deleted_at: null,
@@ -103,6 +123,10 @@ export class MemoryProjectRepository implements ProjectRepository {
       target_audience: input.target_audience ?? existing.target_audience,
       notes: input.notes ?? existing.notes,
       captions_on_video: input.captions_on_video ?? existing.captions_on_video,
+      brand_id: input.brand_id !== undefined ? input.brand_id : existing.brand_id,
+      niche: input.niche ?? existing.niche,
+      content_purpose: input.content_purpose ?? existing.content_purpose,
+      universe_context: input.universe_context ?? existing.universe_context,
       updated_at: timestamp,
       input: nextInput,
     };
@@ -161,6 +185,51 @@ export class MemoryProjectRepository implements ProjectRepository {
     return structuredClone(updated);
   }
 
+  /** Internal: advance DNA version pointer after publish/seed. */
+  async setDnaVersion(userId: string, projectId: string, version: number): Promise<ProjectRecord> {
+    const existing = await this.getById(userId, projectId);
+    if (!existing) throw new Error('Project not found');
+    const updated: ProjectRecord = {
+      ...existing,
+      dna_current_version: version,
+      updated_at: nowIso(),
+    };
+    this.projects.set(projectId, updated);
+    return structuredClone(updated);
+  }
+
+  async setLegacySingleVideo(
+    userId: string,
+    projectId: string,
+    value: boolean,
+  ): Promise<ProjectRecord> {
+    const existing = await this.getById(userId, projectId);
+    if (!existing) throw new Error('Project not found');
+    const updated: ProjectRecord = {
+      ...existing,
+      legacy_single_video: value,
+      updated_at: nowIso(),
+    };
+    this.projects.set(projectId, updated);
+    return structuredClone(updated);
+  }
+
+  async assignBrand(
+    userId: string,
+    projectId: string,
+    brandId: string,
+  ): Promise<ProjectRecord> {
+    const existing = await this.getById(userId, projectId);
+    if (!existing) throw new Error('Project not found');
+    const updated: ProjectRecord = {
+      ...existing,
+      brand_id: brandId,
+      updated_at: nowIso(),
+    };
+    this.projects.set(projectId, updated);
+    return structuredClone(updated);
+  }
+
   /** Test helper */
   clear(): void {
     this.projects.clear();
@@ -179,6 +248,12 @@ export class MemoryProjectRepository implements ProjectRepository {
         structuredClone({
           ...record,
           captions_on_video: record.captions_on_video ?? false,
+          brand_id: record.brand_id ?? null,
+          niche: record.niche ?? '',
+          content_purpose: record.content_purpose ?? '',
+          universe_context: record.universe_context ?? '',
+          dna_current_version: record.dna_current_version ?? 0,
+          legacy_single_video: record.legacy_single_video ?? Boolean(record.input),
         }),
       );
     }

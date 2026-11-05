@@ -34,6 +34,24 @@ export type {
   ReferenceAssetRepository,
 } from './story-types.js';
 
+export type {
+  BrandRecord,
+  ProjectDnaVersionRecord,
+  VideoContextSnapshot,
+  VideoRecord,
+  EnvironmentRecord,
+  SocialAccountRecord,
+  ProjectSocialAccountRecord,
+  VideoDistributionRecord,
+  DistributionRetryEntry,
+  BrandRepository,
+  ProjectDnaRepository,
+  VideoRepository,
+  EnvironmentRepository,
+  SocialAccountRepository,
+  DistributionRepository,
+} from './content-platform-types.js';
+
 export { MemoryProjectRepository } from './memory-project-repository.js';
 export { SupabaseProjectRepository } from './supabase-project-repository.js';
 export { MemoryStoryRepository } from './memory-story-repository.js';
@@ -42,6 +60,33 @@ export { MemoryCharacterRepository } from './memory-character-repository.js';
 export { SupabaseCharacterRepository } from './supabase-character-repository.js';
 export { MemoryReferenceAssetRepository } from './memory-reference-asset-repository.js';
 export { SupabaseReferenceAssetRepository } from './supabase-reference-asset-repository.js';
+export { MemoryBrandRepository } from './memory-brand-repository.js';
+export { MemoryProjectDnaRepository } from './memory-project-dna-repository.js';
+export { MemoryVideoRepository } from './memory-video-repository.js';
+export { MemoryEnvironmentRepository } from './memory-environment-repository.js';
+export { MemorySocialAccountRepository } from './memory-social-account-repository.js';
+export { MemoryDistributionRepository } from './memory-distribution-repository.js';
+export { SupabaseBrandRepository } from './supabase-brand-repository.js';
+export { SupabaseProjectDnaRepository } from './supabase-project-dna-repository.js';
+export { SupabaseVideoRepository } from './supabase-video-repository.js';
+export { SupabaseEnvironmentRepository } from './supabase-environment-repository.js';
+export { SupabaseSocialAccountRepository } from './supabase-social-account-repository.js';
+export { SupabaseDistributionRepository } from './supabase-distribution-repository.js';
+export {
+  mapBrandRow,
+  mapDnaVersionRow,
+  mapVideoRow,
+  mapVideoContextSnapshot,
+  mapEnvironmentRow,
+  mapSocialAccountRow,
+  mapDistributionRow,
+} from './content-platform-mappers.js';
+export {
+  createProjectWithPlatform,
+  createVideoInProject,
+} from './content-platform-service.js';
+export { migrateLegacyProjectsToContentPlatform } from './migrate-legacy-to-platform.js';
+export { dnaSnapshotFromProject, videoContextFromDna } from './dna-helpers.js';
 export {
   syncCharactersFromScreenplay,
   scenesForCharacter,

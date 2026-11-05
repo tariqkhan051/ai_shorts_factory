@@ -7,7 +7,12 @@ export const PACKAGE_NAME = '@ai-shorts-factory/chatgpt-import' as const;
 export const PACKAGE_PHASE = 2 as const;
 export const PACKAGE_STATUS = 'active' as const;
 
-export { buildChatGptProductionPrompt, type PromptProjectContext } from './prompt.js';
+export {
+  buildChatGptProductionPrompt,
+  type PromptProjectContext,
+  type PromptLibraryCharacter,
+  type PromptLibraryEnvironment,
+} from './prompt.js';
 export { normalizeImportedScreenplay, parseImportedJsonText } from './normalize.js';
 export { importScreenplayFromText, type ScreenplayImportResult } from './import-screenplay.js';
 export { createSampleScreenplay } from './sample-screenplay.js';
