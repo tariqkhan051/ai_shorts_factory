@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, rm, writeFile, readdir } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rm, stat, writeFile, readdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { ObjectStorage, PutObjectInput, SignedUrlOptions, StoredObject } from './types.js';
 import { assertSafeStorageKey } from './types.js';
@@ -100,6 +100,17 @@ export class LocalFileObjectStorage implements ObjectStorage {
   async createSignedUploadUrl(key: string, options?: SignedUrlOptions): Promise<string> {
     assertSafeStorageKey(key);
     return this.createToken(key, 'upload', options?.expiresInSeconds);
+  }
+
+  async downloadToFile(
+    key: string,
+    destinationPath: string,
+  ): Promise<{ byteSize: number }> {
+    const source = this.objectPath(key);
+    await mkdir(dirname(destinationPath), { recursive: true });
+    await copyFile(source, destinationPath);
+    const info = await stat(destinationPath);
+    return { byteSize: info.size };
   }
 
   private async walk(

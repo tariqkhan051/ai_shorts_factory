@@ -7,17 +7,30 @@ import {
   resolveMediaToolPaths,
   runCommand,
 } from '@ai-shorts-factory/media-engine';
+import { canCreateSqlQueryClient, createSqlQueryClient } from '@ai-shorts-factory/database';
 import { BUSINESS_DEFAULTS, PHASE } from '@ai-shorts-factory/shared-types';
-import { MemoryJobQueue } from '@ai-shorts-factory/workflow-engine';
+import { createJobQueue, type JobQueue } from '@ai-shorts-factory/workflow-engine';
+import { handleMatchStudioJob } from './match-handlers.js';
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function createQueue(): Promise<JobQueue> {
+  const mode = process.env.MATCH_JOB_QUEUE?.trim().toLowerCase() ?? 'file';
+  if (mode === 'postgres') {
+    if (!canCreateSqlQueryClient(process.env)) {
+      throw new Error('MATCH_JOB_QUEUE=postgres requires SUPABASE_DB_URL');
+    }
+    const sql = await createSqlQueryClient(process.env);
+    return createJobQueue({ env: process.env, sqlClient: sql });
+  }
+  return createJobQueue({ env: process.env });
+}
+
 /**
- * Media worker entrypoint (Phase 5).
- * Claims ASSEMBLE_PROJECT jobs when a shared queue is available.
- * Smoke mode synthesizes five clips and assembles a ≤59s vertical MP4 locally.
+ * Media worker entrypoint.
+ * Claims Match Studio jobs from shared FileJobQueue / Memory / Postgres.
  */
 async function main(): Promise<void> {
   const enabled = process.env.MEDIA_WORKER_ENABLED === 'true';
@@ -25,6 +38,7 @@ async function main(): Promise<void> {
   const keepalive = process.env.MEDIA_WORKER_KEEPALIVE === 'true';
   const workerId = process.env.MEDIA_WORKER_ID ?? `media-worker:${process.pid}`;
   const paths = resolveMediaToolPaths(process.env);
+  const queueMode = process.env.MATCH_JOB_QUEUE?.trim().toLowerCase() ?? 'file';
 
   console.info(
     JSON.stringify({
@@ -34,6 +48,7 @@ async function main(): Promise<void> {
       smoke,
       keepalive,
       workerId,
+      queueMode,
       mediaEngine: getPackageMeta(),
       tools: paths,
       defaults: {
@@ -101,16 +116,16 @@ async function main(): Promise<void> {
     }
   }
 
-  const queue = new MemoryJobQueue();
+  const queue = await createQueue();
   let idlePasses = 0;
   const maxIdlePasses = keepalive ? Number.POSITIVE_INFINITY : smoke ? 0 : 3;
 
   while (idlePasses < maxIdlePasses) {
-    const job = await queue.claim(workerId, 300);
+    const job = await queue.claim(workerId, Number(process.env.WORKER_LEASE_SECONDS ?? 300));
     if (!job) {
       idlePasses += 1;
       if (keepalive) {
-        await sleep(2000);
+        await sleep(Number(process.env.WORKER_POLL_INTERVAL_MS ?? 2000));
       }
       continue;
     }
@@ -121,21 +136,28 @@ async function main(): Promise<void> {
         message: 'Job claimed',
         jobId: job.id,
         jobType: job.jobType,
-        note: 'Memory queue is process-local; web assemble uses an inline media tick.',
       }),
     );
 
-    if (job.jobType !== 'ASSEMBLE_PROJECT') {
-      await queue.fail(job.id, workerId, 'media-worker only handles ASSEMBLE_PROJECT');
-      continue;
+    try {
+      if (job.state === 'cancelled') {
+        continue;
+      }
+      await handleMatchStudioJob(queue, job, workerId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown media-worker error';
+      if (message === 'JOB_CANCELLED') {
+        console.info(
+          JSON.stringify({
+            service: 'media-worker',
+            message: 'Job cancelled before output; skipping complete',
+            jobId: job.id,
+          }),
+        );
+        continue;
+      }
+      await queue.fail(job.id, workerId, message);
     }
-
-    // Shared Postgres-backed assembly with app store arrives with durable queue wiring.
-    await queue.fail(
-      job.id,
-      workerId,
-      'ASSEMBLE_PROJECT requires shared project/storage adapters; use web assemble tick or MEDIA_WORKER_SMOKE for local proof.',
-    );
   }
 
   console.info(

@@ -125,3 +125,54 @@ export const MATCH_AUTOMATION_DEFAULTS = {
   /** Directory pull only; never invents Moonton/network APIs. */
   allow_remote_artifact_fetch: false,
 } as const;
+
+/** Match Studio product lifecycle (orthogonal to shorts workflow_state). */
+export const MATCH_STUDIO_STATUSES = [
+  'draft',
+  'awaiting_upload',
+  'ingesting',
+  'ready_for_analysis',
+  'analyzing',
+  'awaiting_timeline_review',
+  'commentary_pending',
+  'awaiting_commentary_review',
+  'voice_pending',
+  'awaiting_voice_approval',
+  'edl_pending',
+  'awaiting_edit_review',
+  'rendering',
+  'awaiting_final_approval',
+  'completed',
+  'failed',
+  'cancelled',
+] as const;
+export type MatchStudioStatus = (typeof MATCH_STUDIO_STATUSES)[number];
+
+export const MATCH_STUDIO_PATCH_RESOLUTIONS = ['bound', 'unknown', 'draft_only'] as const;
+export type MatchStudioPatchResolution = (typeof MATCH_STUDIO_PATCH_RESOLUTIONS)[number];
+
+export const MATCH_COMMENTARY_STYLES = [
+  'esports_caster',
+  'highlight_energetic',
+  'tactical_analyst',
+  'documentary',
+] as const;
+export type MatchCommentaryStyle = (typeof MATCH_COMMENTARY_STYLES)[number];
+
+export const MATCH_CAPABILITY_STATUSES = [
+  'supported',
+  'partial',
+  'stub',
+  'unavailable',
+  'not_implemented',
+] as const;
+export type MatchCapabilityStatus = (typeof MATCH_CAPABILITY_STATUSES)[number];
+
+/** Default Match Studio ingest limits (env-overridable; not Flow 20s). */
+export const MATCH_INGEST_DEFAULTS = {
+  maxUploadBytes: 8 * 1024 * 1024 * 1024,
+  minDurationSeconds: 30,
+  maxDurationSeconds: 7200,
+  minWidth: 480,
+  minHeight: 480,
+} as const;

@@ -78,6 +78,8 @@ export type HeroKnowledgeRecord = {
   game_patch_id: string;
   hero_key: string;
   name: string;
+  /** Alternate spellings / OCR aliases (Match Studio M4). */
+  aliases: string[];
   roles: string[];
   lanes: string[];
   description: string;

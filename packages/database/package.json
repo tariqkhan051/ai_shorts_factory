@@ -24,10 +24,12 @@
     "@ai-shorts-factory/media-engine": "workspace:*",
     "@ai-shorts-factory/shared-types": "workspace:*",
     "@ai-shorts-factory/validation": "workspace:*",
-    "@supabase/supabase-js": "^2.49.1"
+    "@supabase/supabase-js": "^2.49.1",
+    "pg": "^8.13.1"
   },
   "devDependencies": {
     "@ai-shorts-factory/chatgpt-import": "workspace:*",
+    "@types/pg": "^8.11.10",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

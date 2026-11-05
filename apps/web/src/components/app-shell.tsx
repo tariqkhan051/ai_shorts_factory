@@ -12,7 +12,7 @@ const navItems = [
   { href: '/social-accounts', label: 'Social' },
   { href: '/characters', label: 'Characters' },
   { href: '/game-knowledge', label: 'Game KB' },
-  { href: '/match-analysis', label: 'Match OCR' },
+  { href: '/match-studio', label: 'Match Studio' },
   { href: '/settings', label: 'Settings' },
 ] as const;
 

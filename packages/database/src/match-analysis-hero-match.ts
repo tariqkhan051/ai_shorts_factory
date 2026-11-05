@@ -1,6 +1,7 @@
 export type HeroCatalogEntry = {
   hero_key: string;
   name: string;
+  aliases?: string[];
 };
 
 export type HeroMatch = {
@@ -53,10 +54,16 @@ export function matchHeroFromCatalog(
   for (const hero of catalog) {
     const name = normalize(hero.name);
     const key = normalize(hero.hero_key.replace(/_/g, ' '));
-    if (needle === name || needle === key) {
+    const aliases = (hero.aliases ?? []).map(normalize).filter(Boolean);
+    if (needle === name || needle === key || aliases.includes(needle)) {
       return { hero_key: hero.hero_key, hero_name: hero.name, confidence: 1 };
     }
-    if (name.includes(needle) || needle.includes(name) || key.includes(needle)) {
+    if (
+      name.includes(needle) ||
+      needle.includes(name) ||
+      key.includes(needle) ||
+      aliases.some((alias) => alias.includes(needle) || needle.includes(alias))
+    ) {
       const confidence = Math.min(name.length, needle.length) / Math.max(name.length, needle.length);
       if (!best || confidence > best.confidence) {
         best = { hero_key: hero.hero_key, hero_name: hero.name, confidence: Math.max(0.75, confidence) };

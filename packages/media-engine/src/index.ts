@@ -80,6 +80,33 @@ export {
   type MatchEditQualityInput,
 } from './match-edit-quality.js';
 
+export {
+  DEFAULT_MATCH_INGEST_MEDIA_CONTRACT,
+  readMatchIngestContractFromEnv,
+  validateMatchIngestBytes,
+  validateMatchIngestProbe,
+} from './match-ingest-contract.js';
+export {
+  renderFullMatch,
+  type FullMatchRenderInput,
+  type FullMatchRenderResult,
+} from './full-match-render.js';
+export type { TtsProvider, TtsVoice, TtsSynthesizeInput, TtsSynthesizeResult } from './tts/types.js';
+export { MockTtsProvider } from './tts/mock-tts-provider.js';
+export { createTtsProvider, type CreateTtsProviderOptions } from './tts/create-tts-provider.js';
+export {
+  createAudioEventDetector,
+  StubAudioEventDetector,
+  type AudioEventDetector,
+  type AudioEventHit,
+  type AudioEventDetectionInput,
+} from './audio/audio-event-detector.js';
+export { HeuristicAudioEventDetector } from './audio/heuristic-audio-event-detector.js';
+export {
+  verifyMatchRenderOutput,
+  type MatchRenderVerification,
+} from './match-render-verify.js';
+
 export function getPackageMeta() {
   return {
     name: PACKAGE_NAME,

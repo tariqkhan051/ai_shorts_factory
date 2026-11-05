@@ -127,9 +127,11 @@ export function buildMatchCommentary(
     server_environment: input.timeline.server_environment,
     game_patch_id: input.timeline.game_patch_id,
     language: input.language ?? 'en',
+    style: 'esports_caster',
     lines,
     generated_at: new Date().toISOString(),
     notes: 'Generated from verified timeline events only. Predictions are never auto-confirmed.',
+    approval_status: 'draft',
   };
 
   const validation = validateMatchCommentary({

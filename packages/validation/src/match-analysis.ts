@@ -31,13 +31,27 @@ export const hudRecognitionConfigSchema = z.object({
   ]),
 });
 
-export const ingestMatchVideoSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  local_path: z.string().trim().min(1).max(1000),
-  server_environment: z.enum(GAME_SERVER_ENVIRONMENTS),
-  game_patch_id: z.string().uuid(),
-  notes: z.string().trim().max(4000).default(''),
-});
+export const ingestMatchVideoSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    local_path: z.string().trim().min(1).max(1000),
+    server_environment: z.enum(GAME_SERVER_ENVIRONMENTS),
+    /** Required unless patch_unknown is true (Match Studio). */
+    game_patch_id: z.string().uuid().nullable().optional(),
+    patch_unknown: z.boolean().default(false),
+    project_id: z.string().uuid().nullable().optional(),
+    notes: z.string().trim().max(4000).default(''),
+  })
+  .superRefine((value, ctx) => {
+    if (value.patch_unknown) return;
+    if (!value.game_patch_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'game_patch_id is required unless patch_unknown is true',
+        path: ['game_patch_id'],
+      });
+    }
+  });
 
 export const runMatchRosterAnalysisSchema = z.object({
   match_source_id: z.string().uuid(),

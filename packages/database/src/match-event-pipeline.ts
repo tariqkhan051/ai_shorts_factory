@@ -89,8 +89,14 @@ export async function analyzeMatchEventTimeline(
   const source = await deps.analysis.getSource(userId, matchSourceId);
   if (!source) throw new Error('Match source not found');
   if (!source.local_path) throw new Error('Match source has no local_path');
+  if (!source.game_patch_id) {
+    throw new Error(
+      'Match source has no game_patch_id. Bind a published patch before timeline analysis.',
+    );
+  }
+  const gamePatchId = source.game_patch_id;
 
-  const patch = await deps.knowledge.getPatch(userId, source.game_patch_id);
+  const patch = await deps.knowledge.getPatch(userId, gamePatchId);
   if (!patch) throw new Error('Game patch not found');
   assertCanActivatePatch({
     requestedEnvironment: source.server_environment,
@@ -103,7 +109,7 @@ export async function analyzeMatchEventTimeline(
   const cacheKey = buildEventTimelineCacheKey({
     contentChecksum: checksum,
     serverEnvironment: source.server_environment,
-    gamePatchId: source.game_patch_id,
+    gamePatchId,
     detectionConfig,
   });
 
@@ -118,7 +124,7 @@ export async function analyzeMatchEventTimeline(
 
   const activated = await deps.knowledge.resolveActivatedKnowledge(userId, {
     server_environment: source.server_environment,
-    game_patch_id: source.game_patch_id,
+    game_patch_id: gamePatchId,
   });
   const catalog = activated.heroes.map((hero) => ({
     hero_key: hero.hero_key,
@@ -195,7 +201,7 @@ export async function analyzeMatchEventTimeline(
     updated_at: nowIso(),
     events,
     server_environment: source.server_environment,
-    game_patch_id: source.game_patch_id,
+    game_patch_id: gamePatchId,
   };
 
   return deps.timelines.saveTimeline(userId, timeline);

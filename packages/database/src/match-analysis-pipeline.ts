@@ -60,6 +60,8 @@ export type AnalyzeMatchRosterDeps = {
 
 /**
  * Ingest a local match video path and bind it to a published patch/environment.
+ * When `game_patch_id` is null/omitted, ingest is allowed for Match Studio unknown-patch mode
+ * (KB-dependent stages must refuse ability claims until a patch is bound).
  */
 export async function ingestMatchVideo(
   analysis: MatchAnalysisRepository,
@@ -67,20 +69,37 @@ export async function ingestMatchVideo(
   userId: string,
   input: CreateMatchSourceInput,
 ): Promise<MatchSourceRecord> {
-  const patch = await knowledge.getPatch(userId, input.game_patch_id);
-  if (!patch) throw new Error('Game patch not found');
-  assertCanActivatePatch({
-    requestedEnvironment: input.server_environment,
-    gameProfileId: patch.game_profile_id,
-    patch,
-  });
+  if (input.game_patch_id) {
+    const patch = await knowledge.getPatch(userId, input.game_patch_id);
+    if (!patch) throw new Error('Game patch not found');
+    assertCanActivatePatch({
+      requestedEnvironment: input.server_environment,
+      gameProfileId: patch.game_profile_id,
+      patch,
+    });
+  }
 
-  const fileStat = await stat(input.local_path);
-  const checksum = input.content_checksum_sha256 ?? (await sha256File(input.local_path));
+  const localPath = input.local_path?.trim() || null;
+  const storageKey = input.storage_key?.trim() || null;
+  if (!localPath && !storageKey) {
+    throw new Error('Match source requires local_path or storage_key');
+  }
+
+  let byteSize = input.byte_size ?? null;
+  let checksum = input.content_checksum_sha256 ?? null;
+  if (localPath) {
+    const fileStat = await stat(localPath);
+    byteSize = byteSize ?? fileStat.size;
+    checksum = checksum ?? (await sha256File(localPath));
+  }
+
   return analysis.createSource(userId, {
     ...input,
+    local_path: localPath,
+    storage_key: storageKey,
     content_checksum_sha256: checksum,
-    byte_size: input.byte_size ?? fileStat.size,
+    byte_size: byteSize,
+    ingest_status: input.ingest_status ?? (storageKey && !localPath ? 'uploaded' : 'registered'),
   });
 }
 
@@ -98,8 +117,14 @@ export async function analyzeMatchRoster(
   const source = await deps.analysis.getSource(userId, matchSourceId);
   if (!source) throw new Error('Match source not found');
   if (!source.local_path) throw new Error('Match source has no local_path for analysis');
+  if (!source.game_patch_id) {
+    throw new Error(
+      'Match source has no game_patch_id. Bind a published patch before roster OCR (unknown patch limits KB mapping).',
+    );
+  }
+  const gamePatchId = source.game_patch_id;
 
-  const patch = await deps.knowledge.getPatch(userId, source.game_patch_id);
+  const patch = await deps.knowledge.getPatch(userId, gamePatchId);
   if (!patch) throw new Error('Game patch not found');
   assertCanActivatePatch({
     requestedEnvironment: source.server_environment,
@@ -122,7 +147,7 @@ export async function analyzeMatchRoster(
   const cacheKey = buildMatchAnalysisCacheKey({
     contentChecksum: checksum,
     serverEnvironment: source.server_environment,
-    gamePatchId: source.game_patch_id,
+    gamePatchId,
     recognitionConfig,
   });
 
@@ -196,11 +221,12 @@ export async function analyzeMatchRoster(
 
     const activated = await deps.knowledge.resolveActivatedKnowledge(userId, {
       server_environment: source.server_environment,
-      game_patch_id: source.game_patch_id,
+      game_patch_id: gamePatchId,
     });
     const catalog = activated.heroes.map((h) => ({
       hero_key: h.hero_key,
       name: h.name,
+      aliases: h.aliases ?? [],
     }));
 
     const roster: MatchRosterEntry[] = [];
@@ -243,7 +269,7 @@ export async function analyzeMatchRoster(
     const result: MatchRosterAnalysisResult = {
       match_source_id: matchSourceId,
       server_environment: source.server_environment,
-      game_patch_id: source.game_patch_id,
+      game_patch_id: gamePatchId,
       cache_key: cacheKey,
       frames_sampled: frames.length,
       ocr_regions: ocrRegions,

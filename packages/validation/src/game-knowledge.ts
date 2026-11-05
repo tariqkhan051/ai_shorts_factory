@@ -74,6 +74,7 @@ export const createHeroKnowledgeSchema = z.object({
     .max(64)
     .regex(/^[a-z0-9]+(?:_[a-z0-9]+)*$/, 'hero_key must be lowercase snake_case'),
   name: z.string().trim().min(1).max(120),
+  aliases: z.array(z.string().trim().max(80)).max(24).default([]),
   roles: z.array(z.string().trim().max(40)).max(12).default([]),
   lanes: z.array(z.string().trim().max(40)).max(12).default([]),
   description: z.string().trim().max(8000).default(''),

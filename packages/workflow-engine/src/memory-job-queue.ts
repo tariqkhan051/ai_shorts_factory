@@ -99,6 +99,22 @@ export class MemoryJobQueue implements JobQueue {
     });
   }
 
+  async cancel(jobId: string, _actorId: string, reason?: string): Promise<void> {
+    const job = this.jobs.get(jobId);
+    if (!job) throw new Error(`Job not found: ${jobId}`);
+    if (job.state === 'completed' || job.state === 'cancelled') {
+      return;
+    }
+    this.jobs.set(jobId, {
+      ...job,
+      state: 'cancelled',
+      lastError: reason ?? job.lastError,
+      leaseOwner: undefined,
+      leaseExpiresAt: undefined,
+      updatedAt: nowIso(),
+    });
+  }
+
   async getById(jobId: string): Promise<WorkflowJobRecord | null> {
     const job = this.jobs.get(jobId);
     return job ? structuredClone(job) : null;
@@ -114,6 +130,18 @@ export class MemoryJobQueue implements JobQueue {
   clear(): void {
     this.jobs.clear();
     this.idempotency.clear();
+  }
+
+  exportAll(): WorkflowJobRecord[] {
+    return [...this.jobs.values()].map((j) => structuredClone(j));
+  }
+
+  importAll(jobs: WorkflowJobRecord[]): void {
+    this.clear();
+    for (const job of jobs) {
+      this.jobs.set(job.id, structuredClone(job));
+      this.idempotency.set(job.idempotencyKey, job.id);
+    }
   }
 
   private requireOwned(jobId: string, workerId: string): WorkflowJobRecord {

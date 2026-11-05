@@ -402,6 +402,7 @@ export class MemoryGameKnowledgeRepository implements GameKnowledgeRepository {
       const updated: HeroKnowledgeRecord = {
         ...existing,
         name: parsed.name,
+        aliases: asStringArray(parsed.aliases),
         roles: asStringArray(parsed.roles),
         lanes: asStringArray(parsed.lanes),
         description: parsed.description ?? '',
@@ -421,6 +422,7 @@ export class MemoryGameKnowledgeRepository implements GameKnowledgeRepository {
       game_patch_id: patchId,
       hero_key: parsed.hero_key,
       name: parsed.name,
+      aliases: asStringArray(parsed.aliases),
       roles: asStringArray(parsed.roles),
       lanes: asStringArray(parsed.lanes),
       description: parsed.description ?? '',
@@ -449,6 +451,7 @@ export class MemoryGameKnowledgeRepository implements GameKnowledgeRepository {
     const updated: HeroKnowledgeRecord = {
       ...existing,
       name: parsed.name ?? existing.name,
+      aliases: parsed.aliases ? asStringArray(parsed.aliases) : existing.aliases ?? [],
       roles: parsed.roles ? asStringArray(parsed.roles) : existing.roles,
       lanes: parsed.lanes ? asStringArray(parsed.lanes) : existing.lanes,
       description: parsed.description ?? existing.description,

@@ -58,6 +58,9 @@ export async function polishGroundedMatchCommentary(input: {
   const timeline = await input.timelines.getTimeline(input.userId, input.base.timeline_id);
   if (!timeline) throw new Error('Timeline not found');
 
+  if (!input.base.game_patch_id) {
+    throw new Error('Cannot polish commentary without a bound game_patch_id');
+  }
   const knowledge = await input.knowledge.resolveActivatedKnowledge(input.userId, {
     server_environment: input.base.server_environment,
     game_patch_id: input.base.game_patch_id,

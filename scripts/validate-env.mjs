@@ -17,6 +17,7 @@ if (production) {
   requireEnv('NEXT_PUBLIC_SUPABASE_URL');
   requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
   requireEnv('SUPABASE_SERVICE_ROLE_KEY');
+  requireEnv('SUPABASE_DB_URL');
   if ((process.env.PROJECT_STORE ?? 'supabase') === 'memory') {
     issues.push('PROJECT_STORE=memory is forbidden in production');
   }
@@ -31,6 +32,15 @@ if (production) {
     requireEnv('R2_SECRET_ACCESS_KEY');
     requireEnv('R2_BUCKET_NAME');
   }
+}
+
+// Dev-friendly warnings (non-fatal): Match Studio durable queue needs DB URL when postgres mode is selected.
+if (
+  (process.env.MATCH_JOB_QUEUE ?? '').toLowerCase() === 'postgres' &&
+  !process.env.SUPABASE_DB_URL &&
+  !process.env.DATABASE_URL
+) {
+  issues.push('MATCH_JOB_QUEUE=postgres requires SUPABASE_DB_URL (or DATABASE_URL)');
 }
 
 if (issues.length > 0) {

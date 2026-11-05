@@ -100,9 +100,29 @@ export {
 export {
   readDatabaseEnv,
   isSupabaseConfigured,
+  isSupabaseServiceConfigured,
+  isSupabaseDbUrlConfigured,
+  getSupabasePublicConfig,
+  assertSupabaseConfig,
+  describeSupabaseReadiness,
   type DatabaseEnv,
   type DataStoreMode,
+  type SupabasePublicConfig,
+  type SupabaseServiceConfig,
+  type AssertSupabaseOptions,
 } from './config.js';
+export {
+  createServiceSupabaseClient,
+  createAnonSupabaseClient,
+  resolveDatabaseEnvForWorker,
+} from './supabase-clients.js';
+export {
+  createSqlQueryClient,
+  closeSharedSqlQueryClient,
+  canCreateSqlQueryClient,
+  getDatabaseUrlHint,
+  type SqlQueryClient,
+} from './pg-client.js';
 export { canTransition, assertTransition, planTransitionPath } from './workflow-transitions.js';
 
 export type {
@@ -154,8 +174,44 @@ export type {
   MatchRosterAnalysisResult,
   MatchAnalysisJobRecord,
   CreateMatchSourceInput,
+  UpdateMatchSourceInput,
   MatchAnalysisRepository,
 } from './match-analysis-types.js';
+export type {
+  MatchStudioRunRecord,
+  CreateMatchStudioRunRecordInput,
+  UpdateMatchStudioRunInput,
+  MatchStudioRepository,
+} from './match-studio-types.js';
+export { MemoryMatchStudioRepository } from './memory-match-studio-repository.js';
+export { SupabaseMatchStudioRepository } from './supabase-match-studio-repository.js';
+export { SupabaseMatchAnalysisRepository } from './supabase-match-analysis-repository.js';
+export { SupabaseMatchTimelineRepository } from './supabase-match-timeline-repository.js';
+export { SupabaseMatchEditRepository } from './supabase-match-edit-repository.js';
+export { MemoryMatchCommentaryRepository } from './memory-match-commentary-repository.js';
+export { SupabaseMatchCommentaryRepository } from './supabase-match-commentary-repository.js';
+export { ensureMatchStudioKnowledgeRefs } from './ensure-match-studio-knowledge-refs.js';
+export {
+  assertRunOwnedByUser,
+  assertSourceOwnedByUser,
+  assertJobOwnedByUser,
+  assertStorageKeyBelongsToRun,
+  buildMatchStudioStorageKeyPrefix,
+  type MatchStudioJobOwnershipView,
+} from './match-studio-ownership.js';
+export type {
+  MatchCommentaryRepository,
+  MatchCommentaryScriptRecord,
+  MatchCommentaryApprovalStatus,
+  SaveMatchCommentaryInput,
+} from './match-commentary-types.js';
+export {
+  createMatchStudioRun,
+  transitionMatchStudioRun,
+  attachRecordingToMatchStudioRun,
+  bindPatchToMatchStudioRun,
+  type MatchStudioCreateDeps,
+} from './match-studio-service.js';
 export {
   matchHeroFromCatalog,
   parseRosterLines,
@@ -211,6 +267,7 @@ export {
   generateGroundedMatchCommentary,
   polishGroundedMatchCommentary,
 } from './match-commentary-service.js';
+export { commentaryScriptToSegments } from './match-commentary-segments.js';
 
 export { buildMatchEditPlan, type BuildMatchEditPlanInput } from './match-edit-plan.js';
 export {

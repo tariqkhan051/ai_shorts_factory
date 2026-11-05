@@ -1,7 +1,13 @@
 import { z } from 'zod';
-import { GAME_SERVER_ENVIRONMENTS, MATCH_EVENT_TYPES } from '@ai-shorts-factory/shared-types';
+import {
+  GAME_SERVER_ENVIRONMENTS,
+  MATCH_COMMENTARY_STYLES,
+  MATCH_EVENT_TYPES,
+} from '@ai-shorts-factory/shared-types';
 
 export const MATCH_COMMENTARY_SCHEMA_VERSION = 'match-commentary-v1' as const;
+/** Additive segment-oriented schema version for Match Studio styles/windows. */
+export const MATCH_COMMENTARY_SEGMENT_SCHEMA_VERSION = 'match-commentary-v2' as const;
 
 /** Factual claim types must cite a timeline event_id. */
 export const COMMENTARY_CLAIM_TYPES = [
@@ -36,11 +42,40 @@ export const matchCommentaryScriptSchema = z.object({
   match_source_id: z.string().uuid(),
   timeline_id: z.string().uuid(),
   server_environment: z.enum(GAME_SERVER_ENVIRONMENTS),
-  game_patch_id: z.string().uuid(),
+  game_patch_id: z.string().uuid().nullable(),
   language: z.string().trim().min(2).max(32).default('en'),
+  style: z.enum(MATCH_COMMENTARY_STYLES).default('esports_caster'),
   lines: z.array(matchCommentaryLineSchema).max(200),
   generated_at: z.string().datetime(),
   notes: z.string().trim().max(4000).default(''),
+  approval_status: z.enum(['draft', 'approved', 'rejected']).default('draft'),
+});
+
+export const matchCommentarySegmentSchema = z.object({
+  id: z.string().uuid(),
+  event_ids: z.array(z.string().uuid()).max(20).default([]),
+  text: z.string().trim().min(1).max(800),
+  start_seconds: z.number().min(0),
+  end_seconds: z.number().min(0),
+  grounding_status: z.enum(['confirmed', 'cautious', 'omitted']).default('confirmed'),
+  evidence_refs: z.array(z.string().trim().max(240)).max(20).default([]),
+  knowledge_refs: z.array(z.string().trim().max(240)).max(20).default([]),
+  style: z.enum(MATCH_COMMENTARY_STYLES).default('esports_caster'),
+  approval_status: z.enum(['draft', 'approved', 'rejected']).default('draft'),
+});
+
+export const matchCommentaryPackageV2Schema = z.object({
+  schema_version: z.literal(MATCH_COMMENTARY_SEGMENT_SCHEMA_VERSION),
+  match_source_id: z.string().uuid(),
+  timeline_id: z.string().uuid(),
+  server_environment: z.enum(GAME_SERVER_ENVIRONMENTS),
+  game_patch_id: z.string().uuid().nullable(),
+  language: z.string().trim().min(2).max(32).default('en'),
+  style: z.enum(MATCH_COMMENTARY_STYLES).default('esports_caster'),
+  segments: z.array(matchCommentarySegmentSchema).max(200),
+  generated_at: z.string().datetime(),
+  notes: z.string().trim().max(4000).default(''),
+  approval_status: z.enum(['draft', 'approved', 'rejected']).default('draft'),
 });
 
 /** Polished wording from ChatGPT — still must cite event_ids; never invent facts. */

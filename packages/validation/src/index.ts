@@ -184,11 +184,14 @@ export {
 
 export {
   MATCH_COMMENTARY_SCHEMA_VERSION,
+  MATCH_COMMENTARY_SEGMENT_SCHEMA_VERSION,
   COMMENTARY_CLAIM_TYPES,
   FACTUAL_CLAIM_TYPES,
   commentaryClaimTypeSchema,
   matchCommentaryLineSchema,
   matchCommentaryScriptSchema,
+  matchCommentarySegmentSchema,
+  matchCommentaryPackageV2Schema,
   matchCommentaryPolishPackageSchema,
   parseMatchCommentaryScript,
   safeParseMatchCommentaryScript,
@@ -255,3 +258,23 @@ export {
   type MatchSpendAttempt,
   type MatchCacheMetrics,
 } from './match-automation.js';
+
+export {
+  MATCH_STUDIO_SCHEMA_VERSION,
+  MATCH_STUDIO_ALLOWED_TRANSITIONS,
+  matchStudioStatusSchema,
+  matchStudioPatchResolutionSchema,
+  matchCommentaryStyleSchema,
+  matchCapabilityStatusSchema,
+  matchStudioCapabilityFlagsSchema,
+  createMatchStudioRunSchema,
+  transitionMatchStudioStatusSchema,
+  matchStudioRunSchema,
+  canTransitionMatchStudioStatus,
+  assertMatchStudioTransition,
+  parseCreateMatchStudioRun,
+  emptyMatchStudioCapabilityFlags,
+  type CreateMatchStudioRunPayload,
+  type MatchStudioCapabilityFlags,
+  type MatchStudioRun,
+} from './match-studio.js';

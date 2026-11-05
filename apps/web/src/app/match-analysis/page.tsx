@@ -7,10 +7,14 @@ export default async function MatchAnalysisPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Match analysis</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Match analysis (CLI)</h1>
         <p className="max-w-2xl text-sm text-muted">
-          Local match intelligence: roster OCR, event timelines, grounded commentary, and
-          event-based FFmpeg edits / Shorts. Paid cloud vision APIs are not used.
+          Operator CLI reference for roster OCR, timelines, commentary, and edits. For the
+          interactive product workflow use{' '}
+          <Link href="/match-studio" className="text-accent hover:underline">
+            Match Studio
+          </Link>
+          . Paid cloud vision APIs are not used.
         </p>
       </header>
 

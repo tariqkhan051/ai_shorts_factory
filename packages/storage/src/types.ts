@@ -25,6 +25,8 @@ export interface ObjectStorage {
   listObjectKeys(prefix: string): Promise<string[]>;
   createSignedDownloadUrl(key: string, options?: SignedUrlOptions): Promise<string>;
   createSignedUploadUrl(key: string, options?: SignedUrlOptions): Promise<string>;
+  /** Optional: stream object to a local file without buffering the entire object when supported. */
+  downloadToFile?(key: string, destinationPath: string): Promise<{ byteSize: number }>;
 }
 
 export function assertSafeStorageKey(key: string): void {
@@ -50,4 +52,20 @@ export function buildReferenceAssetKey(params: {
   const projectPart = (params.projectId ?? 'library').replace(/[^a-zA-Z0-9_-]/g, '_');
   const userPart = params.userId.replace(/[^a-zA-Z0-9_-]/g, '_');
   return `users/${userPart}/references/${projectPart}/${Date.now()}-${safeName || 'asset'}`;
+}
+
+export function buildMatchStudioRecordingKey(params: {
+  userId: string;
+  runId: string;
+  filename: string;
+}): string {
+  const baseName = params.filename.split(/[/\\]/).pop() ?? 'recording.mp4';
+  const safeName = baseName
+    .replace(/\.\./g, '_')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/^\.+/, '_')
+    .slice(0, 120);
+  const userPart = params.userId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const runPart = params.runId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `users/${userPart}/match-studio/${runPart}/source/${Date.now()}-${safeName || 'recording.mp4'}`;
 }

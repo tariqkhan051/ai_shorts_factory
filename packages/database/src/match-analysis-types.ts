@@ -7,6 +7,7 @@ import type { HudRecognitionConfig } from '@ai-shorts-factory/validation';
 export type MatchSourceRecord = {
   id: string;
   user_id: string;
+  project_id: string | null;
   title: string;
   storage_key: string | null;
   local_path: string | null;
@@ -14,7 +15,11 @@ export type MatchSourceRecord = {
   byte_size: number | null;
   duration_seconds: number | null;
   server_environment: GameServerEnvironment;
-  game_patch_id: string;
+  /** Null when Match Studio patch_resolution is unknown. */
+  game_patch_id: string | null;
+  probe_json: Record<string, unknown>;
+  ingest_status: string;
+  original_filename: string;
   notes: string;
   created_at: string;
   updated_at: string;
@@ -80,20 +85,45 @@ export type MatchAnalysisJobRecord = {
 
 export type CreateMatchSourceInput = {
   title: string;
-  local_path: string;
+  /** Local absolute path when registering a server-readable file. Optional for cloud uploads. */
+  local_path?: string | null;
   server_environment: GameServerEnvironment;
-  game_patch_id: string;
+  game_patch_id?: string | null;
+  project_id?: string | null;
   notes?: string;
   storage_key?: string | null;
   content_checksum_sha256?: string | null;
   byte_size?: number | null;
   duration_seconds?: number | null;
+  probe_json?: Record<string, unknown>;
+  ingest_status?: string;
+  original_filename?: string;
 };
+
+export type UpdateMatchSourceInput = Partial<{
+  project_id: string | null;
+  storage_key: string | null;
+  local_path: string | null;
+  content_checksum_sha256: string | null;
+  byte_size: number | null;
+  duration_seconds: number | null;
+  game_patch_id: string | null;
+  probe_json: Record<string, unknown>;
+  ingest_status: string;
+  original_filename: string;
+  notes: string;
+}>;
 
 export interface MatchAnalysisRepository {
   createSource(userId: string, input: CreateMatchSourceInput): Promise<MatchSourceRecord>;
+  updateSource(
+    userId: string,
+    sourceId: string,
+    input: UpdateMatchSourceInput,
+  ): Promise<MatchSourceRecord>;
   getSource(userId: string, sourceId: string): Promise<MatchSourceRecord | null>;
   listSources(userId: string): Promise<MatchSourceRecord[]>;
+  listSourcesByProject(userId: string, projectId: string): Promise<MatchSourceRecord[]>;
   getJobByCacheKey(
     userId: string,
     matchSourceId: string,

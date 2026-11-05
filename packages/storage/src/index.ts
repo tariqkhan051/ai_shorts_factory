@@ -8,12 +8,28 @@ export const PACKAGE_PHASE = 1 as const;
 export const PACKAGE_STATUS = 'active' as const;
 
 export type { StoredObject, PutObjectInput, SignedUrlOptions, ObjectStorage } from './types.js';
-export { assertSafeStorageKey, buildReferenceAssetKey } from './types.js';
+export {
+  assertSafeStorageKey,
+  buildReferenceAssetKey,
+  buildMatchStudioRecordingKey,
+} from './types.js';
 export { MemoryObjectStorage } from './memory-storage.js';
 export { LocalFileObjectStorage } from './local-file-storage.js';
 export { R2ObjectStorage, isR2Configured, type R2StorageConfig } from './r2-storage.js';
 export { createObjectStorage, type StorageMode } from './factory.js';
 export { buildProjectStoragePrefix, purgeProjectPrefix } from './lifecycle.js';
+export type {
+  MultipartObjectStorage,
+  MultipartUploadSession,
+  SignedUploadPart,
+  CompletedUploadPart,
+  HeadObjectResult,
+} from './multipart-types.js';
+export {
+  isMultipartObjectStorage,
+  DEFAULT_MULTIPART_PART_SIZE_BYTES,
+  SUPABASE_FREE_MAX_UPLOAD_BYTES,
+} from './multipart-types.js';
 
 export function getPackageMeta() {
   return {

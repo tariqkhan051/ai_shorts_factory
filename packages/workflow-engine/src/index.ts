@@ -16,6 +16,9 @@ export type {
 } from './job-types.js';
 export { WORKFLOW_JOB_TYPES, WORKFLOW_JOB_STATES } from './job-types.js';
 export { MemoryJobQueue } from './memory-job-queue.js';
+export { FileJobQueue } from './file-job-queue.js';
+export { PostgresJobQueue, type PostgresJobQueueClient } from './postgres-job-queue.js';
+export { createJobQueue, type CreateJobQueueOptions } from './create-job-queue.js';
 export { startLeaseHeartbeat } from './lease-heartbeat.js';
 export { nextJobIdempotencyKey } from './idempotency-keys.js';
 

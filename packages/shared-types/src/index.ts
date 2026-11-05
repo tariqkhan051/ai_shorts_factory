@@ -44,6 +44,11 @@ export {
   KB_SYNC_RUN_STATUSES,
   MATCH_SPEND_DOMAINS,
   MATCH_AUTOMATION_DEFAULTS,
+  MATCH_STUDIO_STATUSES,
+  MATCH_STUDIO_PATCH_RESOLUTIONS,
+  MATCH_COMMENTARY_STYLES,
+  MATCH_CAPABILITY_STATUSES,
+  MATCH_INGEST_DEFAULTS,
   type GameServerEnvironment,
   type GamePatchStatus,
   type HeroAbilitySlot,
@@ -56,6 +61,10 @@ export {
   type MatchEditStatus,
   type KbSyncRunStatus,
   type MatchSpendDomain,
+  type MatchStudioStatus,
+  type MatchStudioPatchResolution,
+  type MatchCommentaryStyle,
+  type MatchCapabilityStatus,
 } from './game-knowledge.js';
 
 export { BUSINESS_DEFAULTS, PHASE } from './constants.js';
