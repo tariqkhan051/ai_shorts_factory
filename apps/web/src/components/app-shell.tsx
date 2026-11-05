@@ -11,6 +11,8 @@ const navItems = [
   { href: '/projects', label: 'Projects' },
   { href: '/social-accounts', label: 'Social' },
   { href: '/characters', label: 'Characters' },
+  { href: '/game-knowledge', label: 'Game KB' },
+  { href: '/match-analysis', label: 'Match OCR' },
   { href: '/settings', label: 'Settings' },
 ] as const;
 

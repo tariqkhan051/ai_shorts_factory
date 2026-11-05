@@ -1,0 +1,84 @@
+{
+  "schema_version": "game-knowledge-import-v1",
+  "game": {
+    "slug": "mlbb",
+    "name": "Mobile Legends: Bang Bang",
+    "description": "5v5 MOBA by Moonton",
+    "terminology": {
+      "lord": "Lord",
+      "turtle": "Turtle",
+      "tower": "Turret"
+    },
+    "gameplay_rules": "Two teams of five destroy the enemy base. Objectives: Turtle, Lord, turrets."
+  },
+  "server_environment": "advance",
+  "patch": {
+    "patch_code": "1.9.42-exp",
+    "title": "Advance Server experimental Natalia",
+    "effective_from": "2026-10-05T00:00:00.000Z",
+    "notes": "Experimental ability changes — NEVER use on Original Server matches",
+    "previous_patch_code": null
+  },
+  "server_profile": {
+    "terminology": {},
+    "recognition_config": {
+      "hud_profile": "advance_v1"
+    },
+    "notes": "Advance Server experimental HUD may differ"
+  },
+  "sources": [
+    {
+      "source_type": "research_report",
+      "title": "Sample Advance experimental research",
+      "url": null,
+      "published_at": "2026-10-05T12:00:00.000Z",
+      "retrieved_at": "2026-10-05T12:30:00.000Z",
+      "checksum_sha256": "sample-advance-checksum",
+      "notes": "Advance-only fixture"
+    }
+  ],
+  "heroes": [
+    {
+      "hero_key": "natalia",
+      "name": "Natalia",
+      "roles": ["assassin"],
+      "lanes": ["jungle"],
+      "description": "Advance Server experimental kit",
+      "passive": {
+        "name": "Assassin Instinct",
+        "summary": "Modified experimental passive"
+      },
+      "damage_types": ["physical"],
+      "cc_types": ["silence"],
+      "sound_signature_notes": "",
+      "revamp_notes": "Experimental ultimate cloak modification on Advance only",
+      "abilities": [
+        {
+          "ability_key": "assassin_instinct",
+          "slot": "passive",
+          "name": "Assassin Instinct",
+          "description": "Advance-tuned passive",
+          "effects": "Adjusted fog bonus",
+          "damage_types": ["physical"],
+          "cc_types": [],
+          "experimental": false
+        },
+        {
+          "ability_key": "experimental_cloak",
+          "slot": "ultimate",
+          "name": "Experimental Cloak",
+          "description": "Advance-only ultimate modification",
+          "effects": "Hypothetical experimental stealth ultimate — not live",
+          "damage_types": ["physical"],
+          "cc_types": ["silence"],
+          "experimental": true
+        }
+      ]
+    }
+  ],
+  "research_meta": {
+    "researcher": "sample-operator",
+    "research_date": "2026-10-05T12:00:00.000Z",
+    "notes": "Must remain isolated from Original Server activation"
+  }
+}

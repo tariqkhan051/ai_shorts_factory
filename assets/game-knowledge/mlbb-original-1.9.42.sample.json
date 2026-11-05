@@ -1,0 +1,109 @@
+{
+  "schema_version": "game-knowledge-import-v1",
+  "game": {
+    "slug": "mlbb",
+    "name": "Mobile Legends: Bang Bang",
+    "description": "5v5 MOBA by Moonton",
+    "terminology": {
+      "lord": "Lord",
+      "turtle": "Turtle",
+      "tower": "Turret"
+    },
+    "gameplay_rules": "Two teams of five destroy the enemy base. Objectives: Turtle, Lord, turrets."
+  },
+  "server_environment": "original",
+  "patch": {
+    "patch_code": "1.9.42",
+    "title": "Original Server 1.9.42",
+    "effective_from": "2026-10-01T00:00:00.000Z",
+    "notes": "Sample live-server knowledge for audit/import tests",
+    "previous_patch_code": null
+  },
+  "server_profile": {
+    "terminology": {},
+    "recognition_config": {
+      "hud_profile": "original_v1",
+      "scoreboard_region": "top"
+    },
+    "notes": "Live Original Server HUD"
+  },
+  "sources": [
+    {
+      "source_type": "research_report",
+      "title": "Sample Original patch research",
+      "url": null,
+      "published_at": "2026-10-02T12:00:00.000Z",
+      "retrieved_at": "2026-10-02T12:30:00.000Z",
+      "checksum_sha256": "sample-original-checksum",
+      "notes": "Operator-curated sample — not official Moonton feed"
+    }
+  ],
+  "heroes": [
+    {
+      "hero_key": "natalia",
+      "name": "Natalia",
+      "roles": ["assassin"],
+      "lanes": ["jungle"],
+      "description": "Silent blade assassin",
+      "passive": {
+        "name": "Assassin Instinct",
+        "summary": "Enhanced basic attacks from fog of war"
+      },
+      "damage_types": ["physical"],
+      "cc_types": ["silence"],
+      "sound_signature_notes": "Blade whoosh + cloak rustle",
+      "revamp_notes": "",
+      "abilities": [
+        {
+          "ability_key": "assassin_instinct",
+          "slot": "passive",
+          "name": "Assassin Instinct",
+          "description": "Live Original Server passive",
+          "effects": "Bonus damage when leaving bush/fog",
+          "damage_types": ["physical"],
+          "cc_types": [],
+          "experimental": false
+        },
+        {
+          "ability_key": "smoke_bomb",
+          "slot": "skill1",
+          "name": "Smoke Bomb",
+          "description": "Throws smoke for concealment",
+          "effects": "Stealth zone",
+          "damage_types": [],
+          "cc_types": [],
+          "experimental": false
+        }
+      ]
+    },
+    {
+      "hero_key": "tigreal",
+      "name": "Tigreal",
+      "roles": ["tank"],
+      "lanes": ["roam"],
+      "description": "Frontline initiator",
+      "passive": {},
+      "damage_types": ["physical"],
+      "cc_types": ["knockup", "suppress"],
+      "sound_signature_notes": "",
+      "revamp_notes": "",
+      "abilities": [
+        {
+          "ability_key": "implosion",
+          "slot": "ultimate",
+          "name": "Implosion",
+          "description": "Pulls enemies then knocks up",
+          "effects": "AoE crowd control",
+          "damage_types": ["physical"],
+          "cc_types": ["knockup"],
+          "experimental": false
+        }
+      ]
+    }
+  ],
+  "research_meta": {
+    "researcher": "sample-operator",
+    "research_date": "2026-10-02T12:00:00.000Z",
+    "notes": "Fixture for Milestone 2 import acceptance"
+  }
+}

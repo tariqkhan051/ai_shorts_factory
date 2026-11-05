@@ -199,6 +199,12 @@ importers:
 
   packages/database:
     dependencies:
+      '@ai-shorts-factory/credit-manager':
+        specifier: workspace:*
+        version: link:../credit-manager
+      '@ai-shorts-factory/media-engine':
+        specifier: workspace:*
+        version: link:../media-engine
       '@ai-shorts-factory/shared-types':
         specifier: workspace:*
         version: link:../shared-types

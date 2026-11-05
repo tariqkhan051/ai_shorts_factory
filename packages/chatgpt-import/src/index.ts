@@ -16,12 +16,13 @@ export {
 export { normalizeImportedScreenplay, parseImportedJsonText } from './normalize.js';
 export { importScreenplayFromText, type ScreenplayImportResult } from './import-screenplay.js';
 export { createSampleScreenplay } from './sample-screenplay.js';
+export { buildMatchCommentaryPolishPrompt } from './commentary-prompt.js';
 
 export function getPackageMeta() {
   return {
     name: PACKAGE_NAME,
     phase: PACKAGE_PHASE,
     status: PACKAGE_STATUS,
-    description: 'ChatGPT prompt generation and JSON screenplay import',
+    description: 'ChatGPT prompt generation and JSON screenplay/commentary import',
   } as const;
 }

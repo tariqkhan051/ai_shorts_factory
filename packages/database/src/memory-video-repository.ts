@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { WorkflowState } from '@ai-shorts-factory/shared-types';
+import type { GameServerEnvironment, WorkflowState } from '@ai-shorts-factory/shared-types';
 import type { CreateVideoPayload, UpdateVideoPayload } from '@ai-shorts-factory/validation';
 import { assertTransition } from './workflow-transitions.js';
 import type {
@@ -86,6 +86,8 @@ export class MemoryVideoRepository implements VideoRepository {
       captions_on_video: inheritance.captions_on_video ?? false,
       project_dna_version: inheritance.project_dna_version,
       context_snapshot: structuredClone(inheritance.context_snapshot),
+      game_server_environment: null,
+      game_patch_id: null,
       approved_at: null,
       created_at: timestamp,
       updated_at: timestamp,
@@ -183,6 +185,26 @@ export class MemoryVideoRepository implements VideoRepository {
     });
   }
 
+  async setGameKnowledgeBinding(
+    userId: string,
+    videoId: string,
+    binding: {
+      game_server_environment: GameServerEnvironment | null;
+      game_patch_id: string | null;
+    },
+  ): Promise<VideoRecord> {
+    const existing = await this.getById(userId, videoId);
+    if (!existing) throw new Error('Video not found');
+    const updated: VideoRecord = {
+      ...existing,
+      game_server_environment: binding.game_server_environment,
+      game_patch_id: binding.game_patch_id,
+      updated_at: nowIso(),
+    };
+    this.videos.set(videoId, updated);
+    return structuredClone(updated);
+  }
+
   clear(): void {
     this.videos.clear();
   }
@@ -194,7 +216,14 @@ export class MemoryVideoRepository implements VideoRepository {
   importAll(records: VideoRecord[]): void {
     this.videos.clear();
     for (const record of records) {
-      this.videos.set(record.id, structuredClone(record));
+      this.videos.set(
+        record.id,
+        structuredClone({
+          ...record,
+          game_server_environment: record.game_server_environment ?? null,
+          game_patch_id: record.game_patch_id ?? null,
+        }),
+      );
     }
   }
 }

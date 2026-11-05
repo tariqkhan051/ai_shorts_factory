@@ -39,6 +39,9 @@ function mapRow(row: ProjectRow): ProjectRecord {
     universe_context: row.universe_context ?? '',
     dna_current_version: row.dna_current_version ?? 0,
     legacy_single_video: row.legacy_single_video ?? Boolean(normalizeInput(row.project_inputs)),
+    game_profile_id: row.game_profile_id ?? null,
+    game_server_environment: row.game_server_environment ?? null,
+    active_game_patch_id: row.active_game_patch_id ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
     deleted_at: row.deleted_at,
@@ -356,6 +359,32 @@ export class SupabaseProjectRepository implements ProjectRepository {
     if (error) throw new Error(`Failed to set legacy_single_video: ${error.message}`);
     const updated = await this.getById(userId, projectId);
     if (!updated) throw new Error('Project disappeared after legacy flag update');
+    return updated;
+  }
+
+  async setGameKnowledgeBinding(
+    userId: string,
+    projectId: string,
+    binding: {
+      game_profile_id: string | null;
+      game_server_environment: ProjectRecord['game_server_environment'];
+      active_game_patch_id: string | null;
+    },
+  ): Promise<ProjectRecord> {
+    const existing = await this.getById(userId, projectId);
+    if (!existing) throw new Error('Project not found');
+    const { error } = await this.client
+      .from('projects')
+      .update({
+        game_profile_id: binding.game_profile_id,
+        game_server_environment: binding.game_server_environment,
+        active_game_patch_id: binding.active_game_patch_id,
+      })
+      .eq('id', projectId)
+      .eq('user_id', userId);
+    if (error) throw new Error(`Failed to set game knowledge binding: ${error.message}`);
+    const updated = await this.getById(userId, projectId);
+    if (!updated) throw new Error('Project disappeared after game knowledge bind');
     return updated;
   }
 }

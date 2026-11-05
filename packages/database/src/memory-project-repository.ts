@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { WorkflowState } from '@ai-shorts-factory/shared-types';
+import type { GameServerEnvironment, WorkflowState } from '@ai-shorts-factory/shared-types';
 import { assertTransition } from './workflow-transitions.js';
 import type {
   CreateProjectInput,
@@ -80,6 +80,9 @@ export class MemoryProjectRepository implements ProjectRepository {
       universe_context: input.universe_context ?? '',
       dna_current_version: 0,
       legacy_single_video: Boolean(projectInput),
+      game_profile_id: null,
+      game_server_environment: null,
+      active_game_patch_id: null,
       created_at: timestamp,
       updated_at: timestamp,
       deleted_at: null,
@@ -230,6 +233,28 @@ export class MemoryProjectRepository implements ProjectRepository {
     return structuredClone(updated);
   }
 
+  async setGameKnowledgeBinding(
+    userId: string,
+    projectId: string,
+    binding: {
+      game_profile_id: string | null;
+      game_server_environment: GameServerEnvironment | null;
+      active_game_patch_id: string | null;
+    },
+  ): Promise<ProjectRecord> {
+    const existing = await this.getById(userId, projectId);
+    if (!existing) throw new Error('Project not found');
+    const updated: ProjectRecord = {
+      ...existing,
+      game_profile_id: binding.game_profile_id,
+      game_server_environment: binding.game_server_environment,
+      active_game_patch_id: binding.active_game_patch_id,
+      updated_at: nowIso(),
+    };
+    this.projects.set(projectId, updated);
+    return structuredClone(updated);
+  }
+
   /** Test helper */
   clear(): void {
     this.projects.clear();
@@ -254,6 +279,9 @@ export class MemoryProjectRepository implements ProjectRepository {
           universe_context: record.universe_context ?? '',
           dna_current_version: record.dna_current_version ?? 0,
           legacy_single_video: record.legacy_single_video ?? Boolean(record.input),
+          game_profile_id: record.game_profile_id ?? null,
+          game_server_environment: record.game_server_environment ?? null,
+          active_game_patch_id: record.active_game_patch_id ?? null,
         }),
       );
     }

@@ -3,6 +3,7 @@ import {
   MemoryCharacterRepository,
   MemoryDistributionRepository,
   MemoryEnvironmentRepository,
+  MemoryGameKnowledgeRepository,
   MemoryProjectDnaRepository,
   MemoryProjectRepository,
   MemoryReferenceAssetRepository,
@@ -24,6 +25,7 @@ import {
   type CharacterRepository,
   type DistributionRepository,
   type EnvironmentRepository,
+  type GameKnowledgeRepository,
   type ProjectDnaRepository,
   type ProjectRepository,
   type ReferenceAssetRepository,
@@ -32,6 +34,10 @@ import {
   type VideoRepository,
   readDatabaseEnv,
 } from '@ai-shorts-factory/database';
+import {
+  loadGameKnowledgeSnapshot,
+  saveGameKnowledgeSnapshot,
+} from '@/lib/projects/game-knowledge-persist';
 import type { GenerationSceneRecord } from '@ai-shorts-factory/workflow-engine';
 import { createClient } from '@/lib/supabase/server';
 import {
@@ -50,6 +56,9 @@ const globalForStudio = globalThis as typeof globalThis & {
   __asfMemoryEnvironments?: MemoryEnvironmentRepository;
   __asfMemorySocial?: MemorySocialAccountRepository;
   __asfMemoryDistributions?: MemoryDistributionRepository;
+  __asfMemoryGameKnowledge?: MemoryGameKnowledgeRepository;
+  __asfGameKnowledgeHydrated?: boolean;
+  __asfGameKnowledgePersistTimer?: ReturnType<typeof setTimeout>;
   __asfScenes?: Map<string, GenerationSceneRecord[]>;
   __asfMemoryHydrated?: boolean;
   __asfMemoryPersistTimer?: ReturnType<typeof setTimeout>;
@@ -137,6 +146,39 @@ function getMemoryDistributions(): MemoryDistributionRepository {
     );
   }
   return globalForStudio.__asfMemoryDistributions;
+}
+
+function getMemoryGameKnowledge(): MemoryGameKnowledgeRepository {
+  if (!globalForStudio.__asfMemoryGameKnowledge) {
+    globalForStudio.__asfMemoryGameKnowledge = new MemoryGameKnowledgeRepository(
+      getMemoryProjects(),
+      getMemoryVideos(),
+    );
+  }
+  return globalForStudio.__asfMemoryGameKnowledge;
+}
+
+async function ensureGameKnowledgeHydrated(): Promise<void> {
+  if (globalForStudio.__asfGameKnowledgeHydrated) return;
+  globalForStudio.__asfGameKnowledgeHydrated = true;
+  // Game knowledge is always memory-backed in Milestone 2 (persisted separately).
+  await ensureMemoryHydrated();
+  await loadGameKnowledgeSnapshot(getMemoryGameKnowledge());
+}
+
+export function scheduleGameKnowledgePersist(): void {
+  if (globalForStudio.__asfGameKnowledgePersistTimer) {
+    clearTimeout(globalForStudio.__asfGameKnowledgePersistTimer);
+  }
+  globalForStudio.__asfGameKnowledgePersistTimer = setTimeout(() => {
+    void saveGameKnowledgeSnapshot(getMemoryGameKnowledge()).catch(() => {
+      // Persistence failures must not break request paths.
+    });
+  }, 50);
+}
+
+export async function persistGameKnowledgeNow(): Promise<void> {
+  await saveGameKnowledgeSnapshot(getMemoryGameKnowledge());
 }
 
 function memoryPersistPayload() {
@@ -309,6 +351,15 @@ export async function getDistributionRepository(): Promise<DistributionRepositor
   const videos = new SupabaseVideoRepository(supabase, projects);
   const social = new SupabaseSocialAccountRepository(supabase, projects);
   return new SupabaseDistributionRepository(supabase, videos, social);
+}
+
+/**
+ * Milestone 2 game knowledge store (memory + `.data/game-knowledge.json`).
+ * Import creates drafts only; publish requires explicit confirmation phrase.
+ */
+export async function getGameKnowledgeRepository(): Promise<GameKnowledgeRepository> {
+  await ensureGameKnowledgeHydrated();
+  return getMemoryGameKnowledge();
 }
 
 /** Platform deps for createProjectWithPlatform / createVideoInProject (memory or supabase). */

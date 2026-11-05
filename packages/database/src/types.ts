@@ -1,4 +1,9 @@
-import type { ContentCategory, VisualStyle, WorkflowState } from '@ai-shorts-factory/shared-types';
+import type {
+  ContentCategory,
+  GameServerEnvironment,
+  VisualStyle,
+  WorkflowState,
+} from '@ai-shorts-factory/shared-types';
 import type { CreateProjectPayload, UpdateProjectPayload } from '@ai-shorts-factory/validation';
 
 export type ProjectInputRecord = {
@@ -36,6 +41,10 @@ export type ProjectRecord = {
    * Production routes may auto-resolve the sole video for compatibility.
    */
   legacy_single_video: boolean;
+  /** Optional game-intelligence binding (Milestone 1). */
+  game_profile_id: string | null;
+  game_server_environment: GameServerEnvironment | null;
+  active_game_patch_id: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -67,5 +76,14 @@ export interface ProjectRepository {
     userId: string,
     projectId: string,
     value: boolean,
+  ): Promise<ProjectRecord>;
+  setGameKnowledgeBinding?(
+    userId: string,
+    projectId: string,
+    binding: {
+      game_profile_id: string | null;
+      game_server_environment: GameServerEnvironment | null;
+      active_game_patch_id: string | null;
+    },
   ): Promise<ProjectRecord>;
 }

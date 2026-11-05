@@ -105,6 +105,159 @@ export {
 } from './config.js';
 export { canTransition, assertTransition, planTransitionPath } from './workflow-transitions.js';
 
+export type {
+  GameProfileRecord,
+  GameServerProfileRecord,
+  GamePatchRecord,
+  KnowledgeSourceRecord,
+  HeroKnowledgeRecord,
+  AbilityKnowledgeRecord,
+  ActivatedGameKnowledge,
+  ProjectGameKnowledgeBinding,
+  VideoGameKnowledgeBinding,
+  GameKnowledgeRepository,
+} from './game-knowledge-types.js';
+export {
+  GameKnowledgeActivationError,
+  assertPatchPublished,
+  assertPatchEnvironmentMatch,
+  assertPatchBelongsToProfile,
+  assertPatchMutable,
+  assertCanActivatePatch,
+  filterAbilitiesForEnvironment,
+  assertNoExperimentalLeak,
+} from './game-knowledge-activation.js';
+export { MemoryGameKnowledgeRepository } from './memory-game-knowledge-repository.js';
+export {
+  diffGameKnowledge,
+  snapshotFromImport,
+  snapshotFromRecords,
+  type GameKnowledgeDiff,
+  type GameKnowledgeDiffChange,
+  type GameKnowledgeSnapshot,
+} from './game-knowledge-diff.js';
+export {
+  previewGameKnowledgeImport,
+  importGameKnowledgeAsDraft,
+  publishGameKnowledgeWithConfirmation,
+  parseGameKnowledgeImportJsonText,
+  PUBLISH_GAME_KNOWLEDGE_PHRASE,
+  type GameKnowledgeImportPreview,
+  type GameKnowledgeImportPreviewFailure,
+  type GameKnowledgeDraftImportResult,
+} from './game-knowledge-import.js';
+
+export type {
+  MatchSourceRecord,
+  MatchRosterEntry,
+  MatchOcrRegionEvidence,
+  MatchRosterAnalysisResult,
+  MatchAnalysisJobRecord,
+  CreateMatchSourceInput,
+  MatchAnalysisRepository,
+} from './match-analysis-types.js';
+export {
+  matchHeroFromCatalog,
+  parseRosterLines,
+  measureRosterPrecision,
+  type HeroCatalogEntry,
+  type HeroMatch,
+  type ParsedRosterLine,
+} from './match-analysis-hero-match.js';
+export { MemoryMatchAnalysisRepository } from './memory-match-analysis-repository.js';
+export {
+  ingestMatchVideo,
+  analyzeMatchRoster,
+  buildMatchAnalysisCacheKey,
+  type AnalyzeMatchRosterDeps,
+} from './match-analysis-pipeline.js';
+
+export type {
+  MatchTimelineRecord,
+  MatchTimelineWithEvents,
+  MatchTimelineRepository,
+} from './match-event-types.js';
+export {
+  detectEventsFromOcrText,
+  buildEventWindows,
+  dedupeEventSeeds,
+  toMatchEventCandidate,
+  type DetectedEventSeed,
+} from './match-event-detect.js';
+export { MemoryMatchTimelineRepository } from './memory-match-timeline-repository.js';
+export {
+  analyzeMatchEventTimeline,
+  buildEventTimelineCacheKey,
+  type AnalyzeMatchTimelineDeps,
+} from './match-event-pipeline.js';
+
+export {
+  validateMatchCommentary,
+  validateCommentaryPolishAgainstBase,
+  type CommentaryValidationIssue,
+  type CommentaryValidationResult,
+} from './match-commentary-validate.js';
+export {
+  buildMatchCommentary,
+  attachAbilityMention,
+  type BuildMatchCommentaryInput,
+  type BuildMatchCommentaryResult,
+} from './match-commentary-builder.js';
+export {
+  applyMatchCommentaryPolish,
+  type ApplyCommentaryPolishResult,
+} from './match-commentary-polish.js';
+export {
+  generateGroundedMatchCommentary,
+  polishGroundedMatchCommentary,
+} from './match-commentary-service.js';
+
+export { buildMatchEditPlan, type BuildMatchEditPlanInput } from './match-edit-plan.js';
+export {
+  buildCondensedCaptionCues,
+  buildShortCaptionCues,
+} from './match-edit-captions.js';
+export {
+  approveMatchEditForDistribution,
+  type ApproveMatchEditResult,
+} from './match-edit-approve.js';
+export {
+  assembleMatchEditFromTimeline,
+  type AssembleMatchEditInput,
+  type AssembleMatchEditResult,
+} from './match-edit-pipeline.js';
+export { MemoryMatchEditRepository } from './memory-match-edit-repository.js';
+export type {
+  MatchEditStored,
+  MatchEditRepository,
+} from './match-edit-types.js';
+
+export {
+  pullKbArtifactsAsDrafts,
+  type PullKbArtifactsInput,
+} from './kb-artifact-sync.js';
+export { MemoryKbSyncRepository } from './memory-kb-sync-repository.js';
+export type {
+  KbSyncChecksumRecord,
+  KbSyncRepository,
+} from './kb-sync-types.js';
+export {
+  assertMatchSpendAllowed,
+  reserveMatchSpend,
+  recordMatchUnknownSpend,
+  readMatchSpendFlagsFromEnv,
+  emptyMatchSpendFlags,
+  type MatchSpendGateResult,
+  type RecordMatchSpendResult,
+} from './match-spend.js';
+export {
+  MemoryMatchCacheMetricsRepository,
+  recordMatchCacheAccess,
+  summarizeMatchCacheMetrics,
+  type MatchCacheKind,
+  type MatchCacheMetricsRepository,
+} from './match-cache-metrics.js';
+
 export function getPackageMeta() {
   return {
     name: PACKAGE_NAME,

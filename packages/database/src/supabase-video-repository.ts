@@ -206,4 +206,28 @@ export class SupabaseVideoRepository implements VideoRepository {
       .is('deleted_at', null);
     if (error) throw new Error(`Failed to delete video: ${error.message}`);
   }
+
+  async setGameKnowledgeBinding(
+    userId: string,
+    videoId: string,
+    binding: {
+      game_server_environment: VideoRecord['game_server_environment'];
+      game_patch_id: string | null;
+    },
+  ): Promise<VideoRecord> {
+    const existing = await this.getById(userId, videoId);
+    if (!existing) throw new Error('Video not found');
+    const { error } = await this.client
+      .from('videos')
+      .update({
+        game_server_environment: binding.game_server_environment,
+        game_patch_id: binding.game_patch_id,
+      })
+      .eq('id', videoId)
+      .eq('user_id', userId);
+    if (error) throw new Error(`Failed to set video game knowledge binding: ${error.message}`);
+    const updated = await this.getById(userId, videoId);
+    if (!updated) throw new Error('Video disappeared after game knowledge bind');
+    return updated;
+  }
 }

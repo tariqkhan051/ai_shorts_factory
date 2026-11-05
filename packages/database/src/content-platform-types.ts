@@ -1,6 +1,7 @@
 import type {
   DistributionStatus,
   EnvironmentKind,
+  GameServerEnvironment,
   SocialConnectionStatus,
   SocialPlatform,
   WorkflowState,
@@ -70,6 +71,10 @@ export type VideoRecord = {
   captions_on_video: boolean;
   project_dna_version: number;
   context_snapshot: VideoContextSnapshot;
+  /** Match/server environment for game-intelligence (null = unbound). */
+  game_server_environment: GameServerEnvironment | null;
+  /** Published game patch pinned for this video/match. */
+  game_patch_id: string | null;
   approved_at: string | null;
   created_at: string;
   updated_at: string;
@@ -217,6 +222,14 @@ export interface VideoRepository {
     },
   ): Promise<VideoRecord>;
   softDelete(userId: string, videoId: string): Promise<void>;
+  setGameKnowledgeBinding?(
+    userId: string,
+    videoId: string,
+    binding: {
+      game_server_environment: GameServerEnvironment | null;
+      game_patch_id: string | null;
+    },
+  ): Promise<VideoRecord>;
 }
 
 export interface EnvironmentRepository {

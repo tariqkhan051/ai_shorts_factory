@@ -48,12 +48,45 @@ export {
   validateProbeAgainstContract,
 } from './media-contract.js';
 
+export { sampleFramesAtTimestamps, type SampleFramesInput, type SampledFrame } from './sample-frames.js';
+export {
+  cropNormalizedRegion,
+  type CropRegionInput,
+  type NormalizedRegionBox,
+} from './crop-region.js';
+export {
+  synthesizeRosterFixtureVideo,
+  defaultRosterFixturePlayers,
+  rosterFixtureOutputPath,
+  type RosterFixturePlayer,
+  type RosterFixtureManifest,
+  type SynthesizeRosterFixtureInput,
+} from './roster-fixture.js';
+export type { OcrProvider, OcrReadResult } from './ocr/types.js';
+export { ScriptedOcrProvider } from './ocr/scripted-ocr.js';
+export { TesseractCliOcrProvider, isTesseractAvailable } from './ocr/tesseract-cli.js';
+export { createOcrProvider, type CreateOcrProviderOptions } from './ocr/create-ocr-provider.js';
+
+export {
+  renderMatchEdit,
+  mapSourceTimeToEditTime,
+  type MatchEditCutSegment,
+  type RenderMatchEditInput,
+  type RenderMatchEditResult,
+} from './match-edit.js';
+export {
+  evaluateMatchEditQualityGates,
+  type MatchEditQualityProfile,
+  type MatchEditQualityInput,
+} from './match-edit-quality.js';
+
 export function getPackageMeta() {
   return {
     name: PACKAGE_NAME,
     phase: PACKAGE_PHASE,
     status: PACKAGE_STATUS,
-    description: 'FFmpeg assembly, probing, and quality gates',
+    description:
+      'FFmpeg assembly, probing, quality gates, frame sampling, local OCR adapters, match event edits',
     maxFinalSeconds: 59,
   } as const;
 }

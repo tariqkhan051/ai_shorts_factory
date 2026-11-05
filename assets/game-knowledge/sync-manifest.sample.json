@@ -1,0 +1,17 @@
+{
+  "schema_version": "kb-artifact-sync-v1",
+  "inbox_dir": "assets/game-knowledge",
+  "notes": "Operator-provided local research artifacts only. Sync never auto-publishes.",
+  "artifacts": [
+    {
+      "path": "assets/game-knowledge/mlbb-original-1.9.42.sample.json",
+      "label": "Original 1.9.42 sample",
+      "server_environment": "original"
+    },
+    {
+      "path": "assets/game-knowledge/mlbb-advance-1.9.42-exp.sample.json",
+      "label": "Advance 1.9.42-exp sample",
+      "server_environment": "advance"
+    }
+  ]
+}

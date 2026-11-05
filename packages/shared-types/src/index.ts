@@ -26,5 +26,37 @@ export {
   type EnvironmentKind,
 } from './content-platform.js';
 
+export {
+  GAME_SERVER_ENVIRONMENTS,
+  GAME_PATCH_STATUSES,
+  HERO_ABILITY_SLOTS,
+  KNOWLEDGE_SOURCE_TYPES,
+  GAME_SERVER_ENVIRONMENT_LABELS,
+  PUBLISH_GAME_KNOWLEDGE_PHRASE,
+  MATCH_ANALYSIS_STATUSES,
+  MATCH_HUD_REGION_IDS,
+  MATCH_EVENT_TYPES,
+  MATCH_EVENT_PHASES,
+  MATCH_TIMELINE_STATUSES,
+  MATCH_EDIT_STATUSES,
+  APPROVE_MATCH_DISTRIBUTION_PHRASE,
+  MATCH_EDIT_DEFAULTS,
+  KB_SYNC_RUN_STATUSES,
+  MATCH_SPEND_DOMAINS,
+  MATCH_AUTOMATION_DEFAULTS,
+  type GameServerEnvironment,
+  type GamePatchStatus,
+  type HeroAbilitySlot,
+  type KnowledgeSourceType,
+  type MatchAnalysisStatus,
+  type MatchHudRegionId,
+  type MatchEventType,
+  type MatchEventPhase,
+  type MatchTimelineStatus,
+  type MatchEditStatus,
+  type KbSyncRunStatus,
+  type MatchSpendDomain,
+} from './game-knowledge.js';
+
 export { BUSINESS_DEFAULTS, PHASE } from './constants.js';
 export { createLogger, type Logger, type LogLevel, type StructuredLogFields } from './logger.js';

@@ -79,6 +79,9 @@ export function mapVideoRow(row: Record<string, unknown>): VideoRecord {
     captions_on_video: Boolean(row.captions_on_video),
     project_dna_version: Number(row.project_dna_version ?? 1),
     context_snapshot: mapVideoContextSnapshot(row.context_snapshot),
+    game_server_environment:
+      (row.game_server_environment as VideoRecord['game_server_environment']) ?? null,
+    game_patch_id: (row.game_patch_id as string | null) ?? null,
     approved_at: (row.approved_at as string | null) ?? null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),

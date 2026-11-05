@@ -23,7 +23,13 @@
     "db:migrate": "node ./scripts/migrate-check.mjs",
     "deploy:web": "pwsh -File ./scripts/deploy-web.ps1",
     "deploy:workers": "pwsh -File ./scripts/deploy-workers.ps1",
-    "audit:deps": "pnpm audit --audit-level=high"
+    "audit:deps": "pnpm audit --audit-level=high",
+    "game-knowledge:import": "node ./scripts/import-game-knowledge.mjs",
+    "match:analyze-roster": "node ./scripts/analyze-match-roster.mjs",
+    "match:analyze-timeline": "node ./scripts/analyze-match-timeline.mjs",
+    "match:commentary": "node ./scripts/generate-match-commentary.mjs",
+    "match:edit": "node ./scripts/assemble-match-edit.mjs",
+    "game-knowledge:sync": "node ./scripts/sync-game-knowledge-artifacts.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
