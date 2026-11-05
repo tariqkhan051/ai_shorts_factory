@@ -202,6 +202,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
             { href: '/social-accounts', label: 'Manage Social Accounts' },
             { href: `/projects/${id}/story`, label: 'Story Studio (legacy path)' },
             { href: `/projects/${id}/flow-package`, label: 'Flow Package' },
+            { href: `/projects/${id}/automation`, label: 'Automation (n8n)' },
             { href: `/projects/${id}/assemble`, label: 'Assembly' },
           ].map((item) => (
             <Link

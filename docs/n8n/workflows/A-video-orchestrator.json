@@ -1,0 +1,172 @@
+{
+  "name": "ASF Video Orchestrator",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Coordinates sequential HITL scene generation. Does not drive Google Flow. Trusts only AI Shorts Factory API state."
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asf-orchestrator",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "ASF Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "asf-orchestrator"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst items = $input.all();\nconst out = [];\nfor (const item of items) {\n  const headers = item.json.headers || {};\n  const raw = typeof item.json.body === 'string' ? item.json.body : JSON.stringify(item.json.body ?? item.json);\n  const body = typeof item.json.body === 'object' && item.json.body ? item.json.body : JSON.parse(raw);\n  const secret = $env.N8N_WEBHOOK_SECRET || $env.ASF_WEBHOOK_SECRET;\n  const ts = headers['x-asf-timestamp'] || headers['X-Asf-Timestamp'];\n  const sig = headers['x-asf-signature'] || headers['X-Asf-Signature'];\n  if (!secret || !ts || !sig) throw new Error('Unauthorized: missing signature');\n  const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(`${ts}.${typeof item.json.body === 'string' ? item.json.body : JSON.stringify(body)}`).digest('hex');\n  if (expected !== sig) throw new Error('Unauthorized: bad signature');\n  const skew = Math.abs(Date.now() - Number(ts));\n  if (skew > 5 * 60 * 1000) throw new Error('Unauthorized: timestamp skew');\n  const staticData = $getWorkflowStaticData('global');\n  staticData.seen = staticData.seen || {};\n  const key = body.idempotency_key || body.event_id;\n  if (staticData.seen[key]) {\n    out.push({ json: { duplicate: true, event: body } });\n    continue;\n  }\n  staticData.seen[key] = Date.now();\n  out.push({ json: { duplicate: false, event: body } });\n}\nreturn out;"
+      },
+      "id": "validate-signature",
+      "name": "Validate Signature + Idempotency",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.duplicate}}",
+              "value2": false
+            }
+          ]
+        }
+      },
+      "id": "if-not-duplicate",
+      "name": "Not Duplicate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, duplicate: true } }}"
+      },
+      "id": "respond-duplicate",
+      "name": "Respond Duplicate",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [720, 140]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, accepted: true, event_id: $json.event.event_id } }}"
+      },
+      "id": "respond-accepted",
+      "name": "Respond Accepted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{($env.ASF_CALLBACK_BASE_URL || $env.APP_URL)}}/api/n8n/projects/{{$json.event.project_id}}/status?userId={{$env.ASF_OPERATOR_USER_ID}}&videoId={{$json.event.video_id}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "fetch-status",
+      "name": "Fetch Authoritative Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [960, 300],
+      "notes": "Always re-fetch ASF state. Never trust n8n-local REAL_GENERATED claims."
+    },
+    {
+      "parameters": {
+        "jsCode": "const status = $input.first().json;\nif (!status.ok) throw new Error('ASF status fetch failed');\nif (status.project.cancelled || status.project.paused) {\n  return [{ json: { stop: true, reason: status.project.paused ? 'paused' : 'cancelled', status } }];\n}\nconst scenes = status.scenes || [];\nconst next = scenes.find(s => !['REAL_GENERATED','READY_FOR_ASSEMBLY','COMPLETED'].includes(s.state) || s.asset_origin !== 'REAL_GENERATED');\nif (!next) {\n  return [{ json: { stop: false, all_verified: true, status } }];\n}\nreturn [{ json: { stop: false, all_verified: false, next_scene: next, status, event: $('Validate Signature + Idempotency').first().json.event } }];"
+      },
+      "id": "pick-next-scene",
+      "name": "Pick Next Eligible Scene",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.stop}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-stop",
+      "name": "Stop Safely?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1440, 300]
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "hours"
+      },
+      "id": "wait-upload",
+      "name": "Wait For Verified Upload",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1680, 420],
+      "webhookId": "asf-wait-upload",
+      "notes": "Resumed by Workflow C after ASF verification event. Timeout escalates — never auto-submits Flow."
+    },
+    {
+      "parameters": {
+        "content": "## Operator notification\nConnect this output to Workflow B (Scene Notification) or your preferred notifier.\nInclude Flow Package link from `next_scene.flow_package_path`.\nDo NOT open or control Google Flow.",
+        "height": 240,
+        "width": 360
+      },
+      "id": "sticky-notify",
+      "name": "Notify Operator (wire to B)",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1680, 160]
+    }
+  ],
+  "connections": {
+    "ASF Event Webhook": {
+      "main": [[{ "node": "Validate Signature + Idempotency", "type": "main", "index": 0 }]]
+    },
+    "Validate Signature + Idempotency": {
+      "main": [[{ "node": "Not Duplicate?", "type": "main", "index": 0 }]]
+    },
+    "Not Duplicate?": {
+      "main": [
+        [{ "node": "Respond Accepted", "type": "main", "index": 0 }],
+        [{ "node": "Respond Duplicate", "type": "main", "index": 0 }]
+      ]
+    },
+    "Respond Accepted": {
+      "main": [[{ "node": "Fetch Authoritative Status", "type": "main", "index": 0 }]]
+    },
+    "Fetch Authoritative Status": {
+      "main": [[{ "node": "Pick Next Eligible Scene", "type": "main", "index": 0 }]]
+    },
+    "Pick Next Eligible Scene": {
+      "main": [[{ "node": "Stop Safely?", "type": "main", "index": 0 }]]
+    },
+    "Stop Safely?": {
+      "main": [
+        [],
+        [{ "node": "Wait For Verified Upload", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [{ "name": "ai-shorts-factory" }, { "name": "hitl" }]
+}

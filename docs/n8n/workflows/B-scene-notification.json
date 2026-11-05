@@ -1,0 +1,65 @@
+{
+  "name": "ASF Scene Notification",
+  "meta": {
+    "description": "Configurable operator notification for the next scene. Provider is not hard-coded — wire email/Telegram/Slack yourself."
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asf-scene-notify",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "notify-webhook",
+      "name": "Scene Notify Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "asf-scene-notify"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst appUrl = $env.ASF_CALLBACK_BASE_URL || $env.APP_URL || 'http://localhost:3000';\nconst projectName = body.project_name || body.project?.name || 'Project';\nconst videoTitle = body.video_title || body.video?.title || 'Video';\nconst scene = body.scene || body.next_scene || {};\nconst sceneNumber = scene.scene_number || scene.sceneNumber || '?';\nconst sceneTitle = scene.title || `Scene ${sceneNumber}`;\nconst characters = (body.character_names || []).join(', ') || '—';\nconst prompt = body.scene_prompt || scene.flow_prompt || '(open Flow Package)';\nconst packagePath = scene.flow_package_path || body.flow_package_path || '/projects';\nconst packageUrl = packagePath.startsWith('http') ? packagePath : `${appUrl.replace(/\\/$/, '')}${packagePath.startsWith('/') ? '' : '/'}${packagePath}`;\nconst text = [\n  `ASF scene ready for manual Google Flow generation`,\n  `Project: ${projectName}`,\n  `Video: ${videoTitle}`,\n  `Scene: #${sceneNumber} — ${sceneTitle}`,\n  `Characters: ${characters}`,\n  `Status: ${scene.state || body.scene_status || 'awaiting_manual_generation'}`,\n  `Flow Package: ${packageUrl}`,\n  '',\n  'Prompt (copy in ASF UI / normal Chrome Flow):',\n  prompt,\n  '',\n  'Do not use browser automation against Google Flow.',\n].join('\\n');\nreturn [{ json: { text, packageUrl, projectName, videoTitle, sceneNumber, sceneTitle, characters, prompt } }];"
+      },
+      "id": "build-message",
+      "name": "Build Notification Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "content": "Connect your preferred notifier here (Email / Telegram / Slack / Discord / SMS).\nDo not hard-require a single provider.\nNever attach MP4 binaries or base64 reference images — send ASF asset links only.",
+        "height": 200,
+        "width": 420
+      },
+      "id": "sticky-provider",
+      "name": "Configurable notifier",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [520, 160]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, packageUrl: $json.packageUrl } }}"
+      },
+      "id": "respond",
+      "name": "Ack",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [520, 300]
+    }
+  ],
+  "connections": {
+    "Scene Notify Trigger": {
+      "main": [[{ "node": "Build Notification Payload", "type": "main", "index": 0 }]]
+    },
+    "Build Notification Payload": {
+      "main": [[{ "node": "Ack", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "ai-shorts-factory" }]
+}

@@ -48,5 +48,6 @@ coverage
 tmp/
 .tmp/
 .data/
+docker/n8n/data/
 *.mp4
 !packages/media-engine/fixtures/**/*.mp4

@@ -100,6 +100,9 @@ importers:
       '@ai-shorts-factory/media-engine':
         specifier: workspace:*
         version: link:../../packages/media-engine
+      '@ai-shorts-factory/n8n-integration':
+        specifier: workspace:*
+        version: link:../../packages/n8n-integration
       '@ai-shorts-factory/notification':
         specifier: workspace:*
         version: link:../../packages/notification
@@ -237,6 +240,22 @@ importers:
       '@ai-shorts-factory/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.5)
+
+  packages/n8n-integration:
+    dependencies:
+      '@ai-shorts-factory/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
     devDependencies:
       typescript:
         specifier: ^5.7.2

@@ -1,0 +1,101 @@
+{
+  "name": "ASF Upload Verification Callback",
+  "meta": {
+    "description": "Receives signed scene.verification.completed / scene.real_generated events and resumes the Wait node. Re-fetches ASF API before advancing."
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asf-verification-callback",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "cb-webhook",
+      "name": "Verification Event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "asf-verification-callback"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst item = $input.first();\nconst headers = item.json.headers || {};\nconst body = item.json.body || item.json;\nconst raw = typeof item.json.body === 'string' ? item.json.body : JSON.stringify(body);\nconst secret = $env.N8N_WEBHOOK_SECRET || $env.ASF_WEBHOOK_SECRET;\nconst ts = headers['x-asf-timestamp'];\nconst sig = headers['x-asf-signature'];\nif (!secret || !ts || !sig) throw new Error('Unauthorized');\nconst expected = 'sha256=' + crypto.createHmac('sha256', secret).update(`${ts}.${raw}`).digest('hex');\nif (expected !== sig) throw new Error('Invalid signature');\nconst staticData = $getWorkflowStaticData('global');\nstaticData.seen = staticData.seen || {};\nconst key = body.idempotency_key || body.event_id;\nif (staticData.seen[key]) {\n  return [{ json: { duplicate: true, event: body } }];\n}\nstaticData.seen[key] = Date.now();\nif (!['scene.verification.completed','scene.real_generated','scene.uploaded'].includes(body.event_type)) {\n  return [{ json: { duplicate: false, ignore: true, event: body } }];\n}\nreturn [{ json: { duplicate: false, ignore: false, event: body } }];"
+      },
+      "id": "validate",
+      "name": "Validate + Dedupe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{($env.ASF_CALLBACK_BASE_URL || $env.APP_URL)}}/api/n8n/projects/{{$json.event.project_id}}/status?userId={{$env.ASF_OPERATOR_USER_ID}}&videoId={{$json.event.video_id}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.N8N_WEBHOOK_SECRET || $env.ASF_WEBHOOK_SECRET}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "refetch",
+      "name": "Refetch ASF Scene Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const status = $input.first().json;\nconst event = $('Validate + Dedupe').first().json.event;\nconst scene = (status.scenes || []).find(s => s.id === event.scene_id);\nif (!scene) throw new Error('Scene missing in authoritative status');\nconst verified = (scene.state === 'REAL_GENERATED' || scene.state === 'READY_FOR_ASSEMBLY') && scene.asset_origin === 'REAL_GENERATED' && scene.has_durable_asset;\nreturn [{ json: { verified, scene, status, event, resume_key: `${event.project_id}:${event.video_id}:${event.scene_id}` } }];"
+      },
+      "id": "trust-asf-only",
+      "name": "Trust ASF Only",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, verified: $json.verified, resume_key: $json.resume_key } }}"
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "content": "If verified=true, resume Workflow A Wait node (use n8n Wait webhook resume URL stored per correlation_id).\nIf verified=false, notify operator — do NOT advance and do NOT re-submit Flow.\nDuplicate callbacks must not advance twice (idempotency handled above).",
+        "height": 220,
+        "width": 420
+      },
+      "id": "sticky",
+      "name": "Resume Wait notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [960, 120]
+    }
+  ],
+  "connections": {
+    "Verification Event": {
+      "main": [[{ "node": "Validate + Dedupe", "type": "main", "index": 0 }]]
+    },
+    "Validate + Dedupe": {
+      "main": [[{ "node": "Refetch ASF Scene Status", "type": "main", "index": 0 }]]
+    },
+    "Refetch ASF Scene Status": {
+      "main": [[{ "node": "Trust ASF Only", "type": "main", "index": 0 }]]
+    },
+    "Trust ASF Only": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "ai-shorts-factory" }]
+}

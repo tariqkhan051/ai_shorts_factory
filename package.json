@@ -15,7 +15,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "test:unit": "turbo run test --filter=@ai-shorts-factory/validation --filter=@ai-shorts-factory/shared-types --filter=@ai-shorts-factory/workflow-engine --filter=@ai-shorts-factory/credit-manager",
+    "test:unit": "turbo run test --filter=@ai-shorts-factory/validation --filter=@ai-shorts-factory/shared-types --filter=@ai-shorts-factory/workflow-engine --filter=@ai-shorts-factory/credit-manager --filter=@ai-shorts-factory/n8n-integration",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml,css}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml,css}\"",
     "clean": "turbo run clean && rimraf node_modules",

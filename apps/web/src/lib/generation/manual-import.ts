@@ -27,6 +27,8 @@ import {
   withSceneImportLock,
 } from '@/lib/generation/import-operation-store';
 import { getCreditLedger } from '@/lib/generation/runtime';
+import { emitProjectEvent, resolveVideoIdForProject } from '@/lib/n8n/emit';
+import { getOrchestrationController } from '@/lib/n8n/runtime';
 import {
   getCharacterRepository,
   getProjectRepository,
@@ -69,10 +71,32 @@ export async function markSceneAwaitingManualGeneration(
   }
   const from: SceneState = scene.state === 'PENDING' ? 'PROMPT_READY' : scene.state;
   assertManualSceneTransition(from, 'AWAITING_MANUAL_GENERATION');
-  return store.updateScene(userId, projectId, sceneId, {
+  const updated = await store.updateScene(userId, projectId, sceneId, {
     state: 'AWAITING_MANUAL_GENERATION',
     errorMessage: undefined,
   });
+  await emitProjectEvent({
+    userId,
+    projectId,
+    eventType: 'scene.awaiting_manual_generation',
+    sceneId,
+    idempotencyParts: [projectId, sceneId, 'awaiting', updated.state],
+    status: {
+      scene_number: updated.sceneNumber,
+      scene_state: updated.state,
+      flow_package_path: `/projects/${projectId}/flow-package`,
+    },
+  });
+  try {
+    const videoId = await resolveVideoIdForProject(userId, projectId);
+    await getOrchestrationController().setWaiting(projectId, videoId, 'waiting_manual_generation', {
+      sceneId,
+      sceneNumber: updated.sceneNumber,
+    });
+  } catch {
+    // orchestration UI patch is best-effort
+  }
+  return updated;
 }
 
 /**
@@ -156,6 +180,24 @@ export async function prepareScenesPromptReady(
   // Manual Flow package preparation must walk the legal project workflow path —
   // never jump SCENE_PREPARATION → GENERATING_SCENES directly.
   await advanceManualGenerationWorkflow(store, userId, projectId, snapshot.workflowState);
+
+  await emitProjectEvent({
+    userId,
+    projectId,
+    eventType: 'scene.package.ready',
+    idempotencyParts: [projectId, 'package', snapshot.workflowState, updated.length],
+    status: {
+      scene_count: updated.length,
+      prompt_ready_count: updated.filter(
+        (scene) =>
+          scene.state === 'PROMPT_READY' ||
+          scene.state === 'AWAITING_MANUAL_GENERATION' ||
+          scene.state === 'REAL_GENERATED' ||
+          scene.state === 'READY_FOR_ASSEMBLY',
+      ).length,
+      flow_package_path: `/projects/${projectId}/flow-package`,
+    },
+  });
 
   return updated;
 }
@@ -307,6 +349,16 @@ async function importManualSceneVideoLocked(input: {
     isRealAssemblyState(scene.state) &&
     scene.assetOrigin === 'REAL_GENERATED'
   ) {
+    // Duplicate callbacks must not advance orchestration twice — same idempotency keys.
+    await emitVerifiedSceneEvents({
+      userId: input.userId,
+      projectId: input.projectId,
+      scene,
+      storageKey: prior.storageKey,
+      sha256,
+      reused: true,
+      assemblyReady: false,
+    });
     return {
       ok: true,
       scene,
@@ -524,6 +576,7 @@ async function importManualSceneVideoLocked(input: {
 
     // Advance project workflow after the scene asset is durable. Failures here must not
     // roll a verified REAL_GENERATED scene back to VERIFICATION_FAILED.
+    let assemblyReady = false;
     try {
       const refreshed = await store.getProjectSnapshot(input.userId, input.projectId);
       const gate = evaluateAssemblyGate(refreshed.scenes);
@@ -542,16 +595,36 @@ async function importManualSceneVideoLocked(input: {
           refreshed.workflowState,
         );
         await persistMemoryStudioNow();
+        assemblyReady = true;
       }
     } catch (workflowError) {
       const message =
         workflowError instanceof Error ? workflowError.message : 'Workflow advance failed';
+      await emitVerifiedSceneEvents({
+        userId: input.userId,
+        projectId: input.projectId,
+        scene: updated,
+        storageKey,
+        sha256,
+        reused: reusedExistingObject || Boolean(prior),
+        assemblyReady: false,
+      });
       return {
         ok: false,
         reason: `Scene ${scene.sceneNumber} verified and stored, but project workflow did not reach ASSEMBLY_READY: ${message}`,
         scene: updated,
       };
     }
+
+    await emitVerifiedSceneEvents({
+      userId: input.userId,
+      projectId: input.projectId,
+      scene: updated,
+      storageKey,
+      sha256,
+      reused: reusedExistingObject || Boolean(prior),
+      assemblyReady,
+    });
 
     return {
       ok: true,
@@ -586,7 +659,7 @@ async function failVerification(
   scene: GenerationSceneRecord,
   reason: string,
 ): Promise<GenerationSceneRecord> {
-  return store.updateScene(input.userId, input.projectId, scene.id, {
+  const failed = await store.updateScene(input.userId, input.projectId, scene.id, {
     state: 'VERIFICATION_FAILED',
     errorMessage: reason,
     // Never leave a broken asset marked REAL_GENERATED.
@@ -594,6 +667,91 @@ async function failVerification(
       ? {}
       : { assetOrigin: scene.assetOrigin }),
   });
+  await emitProjectEvent({
+    userId: input.userId,
+    projectId: input.projectId,
+    eventType: 'scene.verification.failed',
+    sceneId: scene.id,
+    idempotencyParts: [input.projectId, scene.id, 'verify-fail', reason.slice(0, 80)],
+    status: {
+      scene_number: scene.sceneNumber,
+      scene_state: failed.state,
+      reason,
+    },
+  });
+  return failed;
+}
+
+async function emitVerifiedSceneEvents(input: {
+  userId: string;
+  projectId: string;
+  scene: GenerationSceneRecord;
+  storageKey: string;
+  sha256: string;
+  reused: boolean;
+  assemblyReady: boolean;
+}): Promise<void> {
+  const common = {
+    userId: input.userId,
+    projectId: input.projectId,
+    sceneId: input.scene.id,
+    status: {
+      scene_number: input.scene.sceneNumber,
+      scene_state: input.scene.state,
+      asset_origin: input.scene.assetOrigin ?? 'REAL_GENERATED',
+      asset_storage_key: input.storageKey,
+      asset_checksum_sha256: input.sha256,
+      reused: input.reused,
+      durable: true,
+    } as Record<string, string | number | boolean | null>,
+  };
+
+  await emitProjectEvent({
+    ...common,
+    eventType: 'scene.uploaded',
+    idempotencyParts: [input.projectId, input.scene.id, 'uploaded', input.sha256],
+  });
+  await emitProjectEvent({
+    ...common,
+    eventType: 'scene.verification.completed',
+    idempotencyParts: [input.projectId, input.scene.id, 'verified', input.sha256],
+  });
+  await emitProjectEvent({
+    ...common,
+    eventType: 'scene.real_generated',
+    idempotencyParts: [input.projectId, input.scene.id, 'real', input.sha256],
+  });
+
+  if (input.assemblyReady) {
+    await emitProjectEvent({
+      userId: input.userId,
+      projectId: input.projectId,
+      eventType: 'video.assembly.ready',
+      idempotencyParts: [input.projectId, 'assembly-ready', input.sha256],
+      status: { workflow_gate: 'ASSEMBLY_READY', provenance: 'REAL_GENERATED' },
+    });
+  }
+
+  try {
+    const videoId = await resolveVideoIdForProject(input.userId, input.projectId);
+    const controller = getOrchestrationController();
+    const store = await createStore();
+    const snapshot = await store.getProjectSnapshot(input.userId, input.projectId);
+    const verifiedSceneCount = snapshot.scenes.filter(
+      (item) =>
+        (item.state === 'REAL_GENERATED' || item.state === 'READY_FOR_ASSEMBLY') &&
+        item.assetOrigin === 'REAL_GENERATED',
+    ).length;
+    await controller.patch(input.projectId, videoId, {
+      verifiedSceneCount,
+      status: input.assemblyReady ? 'completed' : 'running',
+      lastSuccessfulSyncAt: new Date().toISOString(),
+      currentSceneId: input.scene.id,
+      currentSceneNumber: input.scene.sceneNumber,
+    });
+  } catch {
+    // non-fatal
+  }
 }
 
 async function createStore() {

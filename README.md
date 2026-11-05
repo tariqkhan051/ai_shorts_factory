@@ -129,7 +129,9 @@ pwsh -File ./scripts/deploy-web.ps1
 pwsh -File ./scripts/deploy-workers.ps1
 ```
 
-Probes: `GET /api/health`, `GET /api/ready`.
+Probes: `GET /api/health`, `GET /api/ready`, `GET /api/n8n/health`.
+
+Optional n8n HITL orchestration (notifications + wait/resume around manual Flow): [docs/n8n/setup.md](./docs/n8n/setup.md). Keep `N8N_ENABLED=false` unless configured — Flow Package / upload / assemble still work without n8n.
 
 ## Safety rules
 

@@ -168,6 +168,33 @@ export async function approveStoryAction(projectId: string): Promise<void> {
   const user = await requireUser();
   const stories = await getStoryRepository();
   await stories.approveStory(user.id, projectId);
+
+  // Orchestration signal: story/video approved for production. Does not drive Flow.
+  try {
+    const { emitProjectEvent, resolveVideoIdForProject } = await import('@/lib/n8n/emit');
+    const { getOrchestrationController } = await import('@/lib/n8n/runtime');
+    const videoId = await resolveVideoIdForProject(user.id, projectId);
+    const controller = getOrchestrationController();
+    const orch = await controller.getOrCreate(projectId, videoId);
+    if (orch.enabled) {
+      await controller.apply(projectId, videoId, 'start');
+    }
+    await emitProjectEvent({
+      userId: user.id,
+      projectId,
+      videoId,
+      eventType: 'video.approved',
+      idempotencyParts: [projectId, videoId, 'approved'],
+      status: {
+        workflow_state: 'SCENE_PREPARATION',
+        orchestration_enabled: orch.enabled,
+        flow_package_path: `/projects/${projectId}/flow-package`,
+      },
+    });
+  } catch {
+    // n8n must never block story approval
+  }
+
   await revalidateStory(projectId);
 }
 

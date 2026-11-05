@@ -1,0 +1,77 @@
+{
+  "name": "ASF Recovery and Monitoring",
+  "meta": {
+    "description": "Escalation for stalled waits, failed deliveries, and safe manual resume. Never auto-regenerates Flow prompts."
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 1 }]
+        }
+      },
+      "id": "cron",
+      "name": "Hourly Sweep",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asf-recovery",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "manual-resume",
+      "name": "Manual Resume Hook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 520],
+      "webhookId": "asf-recovery"
+    },
+    {
+      "parameters": {
+        "url": "={{($env.ASF_CALLBACK_BASE_URL || $env.APP_URL)}}/api/n8n/health",
+        "options": {}
+      },
+      "id": "health",
+      "name": "ASF Integration Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const health = $input.first().json;\nconst failures = health?.integration?.recentFailures || [];\nconst dead = health?.integration?.deadLetterDeliveries || 0;\nconst msg = dead > 0 || failures.length\n  ? `ASF n8n delivery issues: dead_letter=${dead}, recent_failures=${failures.length}. Retry from ASF Automation UI. Do NOT auto-submit Flow.`\n  : 'ASF n8n integration healthy';\nreturn [{ json: { actionable: dead > 0 || failures.length > 0, message: msg, health } }];"
+      },
+      "id": "evaluate",
+      "name": "Evaluate Escalation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "content": "On timeout / stalled human upload:\n1. Send actionable notification (project, scene, Flow Package link).\n2. Do NOT assume upload failed solely because Wait timed out.\n3. Do NOT automatically regenerate or re-submit a Flow prompt.\n4. Operator cancellation / video cancellation / pause must stop the run safely.\n5. After n8n or app restart, resume only after authoritative ASF status confirms the scene.",
+        "height": 280,
+        "width": 480
+      },
+      "id": "sticky-rules",
+      "name": "Recovery rules",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [760, 160]
+    }
+  ],
+  "connections": {
+    "Hourly Sweep": {
+      "main": [[{ "node": "ASF Integration Health", "type": "main", "index": 0 }]]
+    },
+    "ASF Integration Health": {
+      "main": [[{ "node": "Evaluate Escalation", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "ai-shorts-factory" }, { "name": "recovery" }]
+}

@@ -18,6 +18,7 @@ import {
   getStoryRepository,
   persistMemoryStudioNow,
 } from '@/lib/projects/repository';
+import { emitProjectEvent, resolveVideoIdForProject } from '@/lib/n8n/emit';
 import { getObjectStorage } from '@/lib/storage';
 
 export type AssembleProjectOutcome = {
@@ -271,6 +272,19 @@ export async function assembleProjectForUser(
       href: `/projects/${projectId}/assemble`,
     });
 
+    await emitProjectEvent({
+      userId,
+      projectId,
+      eventType: 'video.assembly.completed',
+      idempotencyParts: [projectId, 'assembly-completed', outputStorageKey],
+      status: {
+        assembly_mode: assemblyMode,
+        storage_key: outputStorageKey,
+        duration_seconds: quality.durationSeconds,
+        used_synthetic_placeholders: assembled.usedSyntheticPlaceholders,
+      },
+    });
+
     return {
       record,
       outputStorageKey,
@@ -310,6 +324,14 @@ export async function assembleProjectForUser(
     } catch {
       // notification failures must not mask assembly errors
     }
+    await emitProjectEvent({
+      userId,
+      projectId,
+      videoId: await resolveVideoIdForProject(userId, projectId).catch(() => projectId),
+      eventType: 'video.assembly.failed',
+      idempotencyParts: [projectId, 'assembly-failed', message.slice(0, 80)],
+      status: { reason: message },
+    });
     throw error;
   } finally {
     await rm(root, { recursive: true, force: true });
