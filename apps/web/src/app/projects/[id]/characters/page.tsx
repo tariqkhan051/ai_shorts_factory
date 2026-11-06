@@ -1,14 +1,15 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { scenesForCharacter } from '@ai-shorts-factory/database';
+import { AddProjectCharacterPanel } from '@/components/add-project-character-panel';
 import { CharacterReviewCard } from '@/components/character-review-card';
 import { ProjectWorkflowProgress } from '@/components/project-workflow-progress';
 import {
-  addProjectCharacterAction,
   markCharactersReviewedAction,
   reuseLibraryCharacterAction,
 } from '@/app/projects/[id]/characters/actions';
 import { requireUser } from '@/lib/auth';
+import { charactersMissingReferences } from '@/lib/generation/flow-package';
 import {
   getCharacterRepository,
   getProjectRepository,
@@ -16,10 +17,37 @@ import {
   getStoryRepository,
   getSceneMap,
 } from '@/lib/projects/repository';
-import { buildProjectDashboard } from '@/lib/projects/workflow-progress';
+import {
+  buildProjectDashboard,
+  getCharacterStudioFocus,
+} from '@/lib/projects/workflow-progress';
 
 type PageProps = {
   params: Promise<{ id: string }>;
+};
+
+const FOCUS_COPY: Record<
+  ReturnType<typeof getCharacterStudioFocus>,
+  { title: string; description: string }
+> = {
+  needs_import: {
+    title: 'Import a screenplay first',
+    description: 'Characters are created automatically when you import ChatGPT JSON in Story Studio.',
+  },
+  review: {
+    title: 'Review cast details',
+    description:
+      'Check each character, resolve library conflicts, then mark characters reviewed.',
+  },
+  references: {
+    title: 'Upload primary references',
+    description:
+      'Add a primary reference image for every character before story approval.',
+  },
+  done: {
+    title: 'Characters ready',
+    description: 'References are in place. Continue to approve the story or open Flow Package.',
+  },
 };
 
 export default async function ProjectCharactersPage({ params }: PageProps) {
@@ -47,6 +75,11 @@ export default async function ProjectCharactersPage({ params }: PageProps) {
     characters: linkedCharacters,
     scenes,
   });
+  const focus = getCharacterStudioFocus(dashboard);
+  const copy = FOCUS_COPY[focus];
+  const missingRefs = charactersMissingReferences(linkedCharacters);
+  const visibleCharacters =
+    focus === 'references' && missingRefs.length > 0 ? missingRefs : linkedCharacters;
 
   const libraryByName = new Map(library.map((c) => [c.name.trim().toLowerCase(), c]));
   const conflicts = linkedCharacters
@@ -62,7 +95,7 @@ export default async function ProjectCharactersPage({ params }: PageProps) {
 
   const refsByCharacter = new Map<string, Awaited<ReturnType<typeof referencesRepo.listByCharacter>>>();
   await Promise.all(
-    linkedCharacters.map(async (character) => {
+    visibleCharacters.map(async (character) => {
       refsByCharacter.set(character.id, await referencesRepo.listByCharacter(user.id, character.id));
     }),
   );
@@ -74,10 +107,7 @@ export default async function ProjectCharactersPage({ params }: PageProps) {
           ← {project.name}
         </Link>
         <h1 className="text-3xl font-semibold tracking-tight">Character Review</h1>
-        <p className="max-w-3xl text-muted">
-          Review cast extracted from the screenplay, upload durable reference images, then mark
-          characters reviewed before story approval.
-        </p>
+        <p className="max-w-3xl text-muted">{copy.description}</p>
         <p className="font-mono text-xs uppercase tracking-wide text-accent">
           {project.workflow_state}
           {story?.characters_reviewed_at ? ' · characters reviewed' : ''}
@@ -86,7 +116,7 @@ export default async function ProjectCharactersPage({ params }: PageProps) {
 
       <ProjectWorkflowProgress stages={dashboard.stages} />
 
-      {!screenplay ? (
+      {focus === 'needs_import' || !screenplay ? (
         <div className="rounded-lg border border-border p-5 text-sm text-muted">
           Import a screenplay in{' '}
           <Link href={`/projects/${project.id}/story`} className="text-accent hover:underline">
@@ -96,22 +126,16 @@ export default async function ProjectCharactersPage({ params }: PageProps) {
         </div>
       ) : (
         <>
-          <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background-elevated/50 p-5">
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-accent/40 bg-accent/5 p-5">
             <div>
-              <h2 className="text-lg font-medium">Review gate</h2>
+              <h2 className="text-lg font-medium">{copy.title}</h2>
               <p className="mt-1 text-sm text-muted">
                 {linkedCharacters.length} characters ·{' '}
                 {dashboard.charactersMissingReferences} missing primary references
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link
-                href={`/projects/${project.id}/story`}
-                className="rounded-md border border-border px-3 py-2 text-sm hover:bg-background"
-              >
-                Review screenplay
-              </Link>
-              {!story?.characters_reviewed_at ? (
+              {focus === 'review' && !story?.characters_reviewed_at ? (
                 <form action={markCharactersReviewedAction.bind(null, project.id)}>
                   <button
                     type="submit"
@@ -120,18 +144,33 @@ export default async function ProjectCharactersPage({ params }: PageProps) {
                     Mark characters reviewed
                   </button>
                 </form>
-              ) : (
-                <Link
-                  href={`/projects/${project.id}/story`}
-                  className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background hover:bg-accent/90"
-                >
-                  Continue to approve story
-                </Link>
-              )}
+              ) : null}
+              {focus === 'references' ? (
+                <p className="self-center text-sm text-muted">
+                  Upload a primary image on each card below.
+                </p>
+              ) : null}
+              {focus === 'done' ? (
+                story?.approved_at ? (
+                  <Link
+                    href={`/projects/${project.id}/flow-package`}
+                    className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background hover:bg-accent/90"
+                  >
+                    Open Flow Package →
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/projects/${project.id}/story`}
+                    className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-background hover:bg-accent/90"
+                  >
+                    Continue to approve story →
+                  </Link>
+                )
+              ) : null}
             </div>
           </section>
 
-          {conflicts.length > 0 ? (
+          {focus === 'review' && conflicts.length > 0 ? (
             <section className="space-y-3 rounded-lg border border-warning/40 bg-warning/5 p-5">
               <h2 className="text-lg font-medium">Library name conflicts</h2>
               <p className="text-sm text-muted">
@@ -176,15 +215,22 @@ export default async function ProjectCharactersPage({ params }: PageProps) {
             </section>
           ) : null}
 
-          <section className="space-y-4">
-            {linkedCharacters.length === 0 ? (
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-medium">Cast</h2>
+              <p className="text-xs text-muted">
+                Expand a character to edit details and references
+              </p>
+            </div>
+            {visibleCharacters.length === 0 ? (
               <p className="text-sm text-muted">No characters linked yet.</p>
             ) : (
-              linkedCharacters.map((character) => (
+              visibleCharacters.map((character) => (
                 <CharacterReviewCard
                   key={character.id}
                   projectId={project.id}
                   character={character}
+                  defaultOpen={!character.primary_reference_asset_id}
                   sceneNumbers={
                     screenplay
                       ? scenesForCharacter(
@@ -200,38 +246,9 @@ export default async function ProjectCharactersPage({ params }: PageProps) {
             )}
           </section>
 
-          <section className="space-y-3 rounded-lg border border-border bg-background-elevated/50 p-5">
-            <h2 className="text-lg font-medium">Add missing character</h2>
-            <form
-              action={addProjectCharacterAction.bind(null, project.id)}
-              className="grid gap-3 sm:grid-cols-2"
-            >
-              <input name="name" required placeholder="Name" className="field-input" />
-              <input
-                name="screenplay_character_id"
-                placeholder="character_id (optional)"
-                className="field-input"
-              />
-              <input
-                name="visual_identity"
-                required
-                placeholder="Visual identity"
-                className="field-input sm:col-span-2"
-              />
-              <input
-                name="description"
-                required
-                placeholder="Description"
-                className="field-input sm:col-span-2"
-              />
-              <button
-                type="submit"
-                className="rounded-md border border-border px-3 py-2 text-sm hover:bg-background sm:col-span-2"
-              >
-                Add character
-              </button>
-            </form>
-          </section>
+          {focus === 'review' || focus === 'references' ? (
+            <AddProjectCharacterPanel projectId={project.id} />
+          ) : null}
         </>
       )}
     </div>

@@ -132,22 +132,30 @@ export function buildProjectDashboard(input: {
     {
       id: 'story_approved',
       label: 'Story Approved',
-      status: approved ? 'complete' : charactersReviewed ? 'current' : 'upcoming',
+      status: approved
+        ? 'complete'
+        : charactersReviewed && referencesReady
+          ? 'current'
+          : 'upcoming',
       href: `${base}/story`,
       actionLabel: 'Approve story',
       detail: approved
         ? `Approved ${story?.approved_at}`
-        : charactersReviewed
-          ? 'Ready to approve'
-          : 'Mark characters reviewed first',
-      available: imported && charactersReviewed && !approved,
+        : !charactersReviewed
+          ? 'Mark characters reviewed first'
+          : !referencesReady
+            ? 'Upload primary references first'
+            : 'Ready to approve',
+      available: imported && charactersReviewed && referencesReady && !approved,
       blockedReason: !imported
         ? 'Import a screenplay first'
         : !charactersReviewed
           ? 'Mark characters as reviewed before approval'
-          : approved
-            ? 'Already approved'
-            : undefined,
+          : !referencesReady
+            ? 'Upload primary references before approval'
+            : approved
+              ? 'Already approved'
+              : undefined,
     },
     {
       id: 'flow_package',
@@ -229,6 +237,47 @@ export function buildProjectDashboard(input: {
     stages,
     nextAction,
   };
+}
+
+/** Which Story Studio panel to show for the current workflow stage. */
+export type StoryStudioFocus =
+  | 'prompt_and_import'
+  | 'characters_review'
+  | 'references'
+  | 'approve'
+  | 'done';
+
+export function getStoryStudioFocus(dashboard: ProjectDashboardStats): StoryStudioFocus {
+  switch (dashboard.nextAction?.id) {
+    case undefined:
+    case 'story_imported':
+      return 'prompt_and_import';
+    case 'characters_reviewed':
+      return 'characters_review';
+    case 'references_ready':
+      return 'references';
+    case 'story_approved':
+      return 'approve';
+    default:
+      return 'done';
+  }
+}
+
+/** Which Character Review panel to emphasize for the current workflow stage. */
+export type CharacterStudioFocus = 'needs_import' | 'review' | 'references' | 'done';
+
+export function getCharacterStudioFocus(dashboard: ProjectDashboardStats): CharacterStudioFocus {
+  switch (dashboard.nextAction?.id) {
+    case undefined:
+    case 'story_imported':
+      return 'needs_import';
+    case 'characters_reviewed':
+      return 'review';
+    case 'references_ready':
+      return 'references';
+    default:
+      return 'done';
+  }
 }
 
 /** Operator-facing assembly status — avoid dumping raw mock-gate noise for PROMPT_READY scenes. */

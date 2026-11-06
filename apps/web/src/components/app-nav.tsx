@@ -72,7 +72,7 @@ function AuthControls({
         {store}
       </span>
       {user?.mode === 'supabase' ? (
-        <SignOutButton />
+        <SignOutButton email={user.email} />
       ) : supabaseConfigured ? (
         <Link
           href="/login"

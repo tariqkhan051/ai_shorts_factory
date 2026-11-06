@@ -223,6 +223,25 @@ export function IconLogIn(props: IconProps) {
   );
 }
 
+export function IconLogOut(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
+      <path d="M9 12h10" />
+      <path d="m12 8-4 4 4 4" />
+    </Icon>
+  );
+}
+
+export function IconUser(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 19c1.2-3.2 3.6-5 7-5s5.8 1.8 7 5" />
+    </Icon>
+  );
+}
+
 export function IconEmptyInbox(props: IconProps) {
   return (
     <Icon {...props}>
