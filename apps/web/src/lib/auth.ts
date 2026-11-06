@@ -8,7 +8,8 @@ export type AppUser = {
   mode: 'supabase' | 'memory';
 };
 
-const MEMORY_DEV_USER_ID = '00000000-0000-4000-8000-000000000001';
+/** Must match CLI/bootstrap + memory repository local identity. */
+const MEMORY_DEV_USER_ID = 'local-dev-user';
 
 /**
  * Resolves the current user.

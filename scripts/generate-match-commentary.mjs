@@ -67,6 +67,38 @@ async function main() {
     process.exit(1);
   }
 
+  let knowledgeContext;
+  try {
+    const ke = await import(pathToFileURL(join(root, 'packages/knowledge-engine/dist/index.js')).href);
+    const enginePath =
+      process.env.ASF_KNOWLEDGE_ENGINE_PATH?.trim() || join(root, '.data', 'knowledge-engine.json');
+    const store = new ke.MemoryKnowledgeEngineStore();
+    try {
+      const snap = JSON.parse(await readFile(enginePath, 'utf8'));
+      if (snap.engine) store.importSnapshot(snap.engine);
+    } catch {
+      /* optional */
+    }
+    const timeline = await timelines.getTimeline(userId, args.timelineId);
+    const heroKeys = [];
+    for (const event of timeline?.events ?? []) {
+      for (const p of event.participants ?? []) {
+        if (p.hero_key) heroKeys.push(p.hero_key);
+      }
+    }
+    knowledgeContext = await ke.buildMatchKnowledgeContextPackage({
+      userId,
+      knowledge,
+      engineStore: store,
+      serverEnvironment: timeline.server_environment,
+      gamePatchId: timeline.game_patch_id,
+      patchResolution: 'bound',
+      relevantHeroKeys: [...new Set(heroKeys)],
+    });
+  } catch {
+    knowledgeContext = undefined;
+  }
+
   let built = await db.generateGroundedMatchCommentary({
     userId,
     matchSourceId: args.matchSourceId,
@@ -74,6 +106,14 @@ async function main() {
     knowledge,
     timelines,
     includeColorHook: args.includeColorHook,
+    knowledgeContext: knowledgeContext
+      ? {
+          grounding_rules: knowledgeContext.grounding_rules,
+          heroes: knowledgeContext.heroes.map((h) => ({ hero_key: h.hero_key, name: h.name })),
+          patch_code: knowledgeContext.patch_code,
+          server_type: knowledgeContext.server_type,
+        }
+      : undefined,
   });
 
   if (!built.validation.ok) {

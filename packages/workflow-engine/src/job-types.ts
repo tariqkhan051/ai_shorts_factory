@@ -14,6 +14,8 @@ export const WORKFLOW_JOB_TYPES = [
   'MATCH_RENDER_FULL',
   'MATCH_RENDER_SHORTS',
   'MATCH_QUALITY_CHECK',
+  'KB_AUTONOMOUS_SYNC',
+  'KB_PATCH_MONITOR',
 ] as const;
 
 export type WorkflowJobType = (typeof WORKFLOW_JOB_TYPES)[number];

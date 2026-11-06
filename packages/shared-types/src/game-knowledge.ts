@@ -18,11 +18,59 @@ export type HeroAbilitySlot = (typeof HERO_ABILITY_SLOTS)[number];
 export const KNOWLEDGE_SOURCE_TYPES = [
   'official_patch_notes',
   'official_hero_page',
+  'official_announcement',
+  'official_website',
+  'community_wiki',
+  'community_esports',
+  'discovered_feed',
   'research_report',
   'manual_entry',
   'other',
 ] as const;
 export type KnowledgeSourceType = (typeof KNOWLEDGE_SOURCE_TYPES)[number];
+
+/** Autonomous Knowledge Engine job kinds / statuses. */
+export const KNOWLEDGE_SYNC_JOB_KINDS = [
+  'initial_ingestion',
+  'patch_monitor',
+  'official_verify',
+  'community_meta_refresh',
+  'consistency_audit',
+  'manual_sync',
+  'retry_failed',
+] as const;
+export type KnowledgeSyncJobKind = (typeof KNOWLEDGE_SYNC_JOB_KINDS)[number];
+
+export const KNOWLEDGE_SYNC_JOB_STATUSES = [
+  'queued',
+  'running',
+  'succeeded',
+  'failed',
+  'cancelled',
+  'skipped_locked',
+] as const;
+export type KnowledgeSyncJobStatus = (typeof KNOWLEDGE_SYNC_JOB_STATUSES)[number];
+
+export const KNOWLEDGE_VERIFICATION_STATUSES = [
+  'unverified',
+  'community',
+  'official_pending',
+  'verified',
+  'rejected',
+  'contradicted',
+] as const;
+export type KnowledgeVerificationStatus = (typeof KNOWLEDGE_VERIFICATION_STATUSES)[number];
+
+/** Default scheduler intervals for the Autonomous MLBB Knowledge Engine. */
+export const KNOWLEDGE_ENGINE_SCHEDULE_DEFAULTS = {
+  patch_monitor_hours: 6,
+  official_verify_hours: 24,
+  community_meta_refresh_hours: 168,
+  consistency_audit_hours: 168,
+  min_request_interval_ms: 1500,
+  max_retries: 5,
+  lock_ttl_seconds: 900,
+} as const;
 
 /** Human-readable labels for operator UI. */
 export const GAME_SERVER_ENVIRONMENT_LABELS: Record<GameServerEnvironment, string> = {

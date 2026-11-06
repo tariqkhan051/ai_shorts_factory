@@ -3,6 +3,7 @@ import { assertCanActivatePatch } from './game-knowledge-activation.js';
 import type { GameKnowledgeRepository } from './game-knowledge-types.js';
 import {
   buildMatchCommentary,
+  type BuildMatchCommentaryInput,
   type BuildMatchCommentaryResult,
 } from './match-commentary-builder.js';
 import { applyMatchCommentaryPolish } from './match-commentary-polish.js';
@@ -19,6 +20,7 @@ export async function generateGroundedMatchCommentary(input: {
   timelines: MatchTimelineRepository;
   includeColorHook?: boolean;
   language?: string;
+  knowledgeContext?: BuildMatchCommentaryInput['knowledgeContext'];
 }): Promise<BuildMatchCommentaryResult> {
   const timeline = await input.timelines.getTimeline(input.userId, input.timelineId);
   if (!timeline) throw new Error('Timeline not found');
@@ -45,6 +47,7 @@ export async function generateGroundedMatchCommentary(input: {
     knowledge,
     includeColorHook: input.includeColorHook,
     language: input.language,
+    knowledgeContext: input.knowledgeContext,
   });
 }
 

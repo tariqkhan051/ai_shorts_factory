@@ -265,6 +265,40 @@ export async function handleMatchStudioJob(
     return;
   }
 
+  if (job.jobType === 'KB_AUTONOMOUS_SYNC' || job.jobType === 'KB_PATCH_MONITOR') {
+    await ensureNotCancelled(queue, job.id);
+    // Knowledge Engine runs via dedicated scheduler/CLI to avoid blocking media renders
+    // and to respect free-tier limits. Worker acknowledges and completes after spawning
+    // the sync script when ASF_KB_WORKER_INLINE=true; otherwise points operators to CLI.
+    if (process.env.ASF_KB_WORKER_INLINE === 'true') {
+      const { spawn } = await import('node:child_process');
+      const kind = job.jobType === 'KB_PATCH_MONITOR' ? 'patch_monitor' : 'manual_sync';
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(
+          process.execPath,
+          ['scripts/run-knowledge-engine-sync.mjs', '--kind', kind],
+          {
+            cwd: process.env.ASF_REPO_ROOT?.trim() || process.cwd(),
+            env: process.env,
+            stdio: ['ignore', 'pipe', 'pipe'],
+          },
+        );
+        let stderr = '';
+        child.stderr.on('data', (chunk) => {
+          stderr += String(chunk);
+        });
+        child.on('exit', (code) => {
+          if (code === 0) resolve();
+          else reject(new Error(stderr || `knowledge engine sync exited ${code}`));
+        });
+      });
+      await queue.complete(job.id, workerId);
+      return;
+    }
+    await queue.complete(job.id, workerId);
+    return;
+  }
+
   if (
     job.jobType === 'MATCH_ANALYZE_ROSTER' ||
     job.jobType === 'MATCH_ANALYZE_TIMELINE' ||

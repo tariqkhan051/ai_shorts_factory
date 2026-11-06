@@ -1,0 +1,135 @@
+import type { MonitoredSource } from '../types.js';
+import { newId, nowIso } from '../util.js';
+
+/** Static seed registry — discovery may append additional feeds at runtime. */
+export function createDefaultMonitoredSources(): MonitoredSource[] {
+  const timestamp = nowIso();
+  const base = (partial: Omit<MonitoredSource, 'id' | 'last_checked_at' | 'last_success_at' | 'last_error' | 'metadata'> & {
+    metadata?: Record<string, unknown>;
+  }): MonitoredSource => ({
+    id: newId(),
+    last_checked_at: null,
+    last_success_at: null,
+    last_error: null,
+    metadata: partial.metadata ?? {},
+    ...partial,
+  });
+
+  return [
+    base({
+      source_key: 'official_website',
+      display_name: 'Official Mobile Legends website',
+      source_type: 'official_website',
+      base_url: 'https://www.mobilelegends.com/',
+      discovery_method: 'static_registry',
+      server_type: null,
+      enabled: true,
+      is_community: false,
+      respect_robots: true,
+      rate_limit_ms: 2000,
+      metadata: { priority: 1, notes: 'SPA; public HTML discovery only — undocumented JSON APIs not assumed' },
+    }),
+    base({
+      source_key: 'official_play_portal',
+      display_name: 'Official play.mobilelegends.com portal',
+      source_type: 'official_website',
+      base_url: 'https://play.mobilelegends.com/',
+      discovery_method: 'static_registry',
+      server_type: null,
+      enabled: true,
+      is_community: false,
+      respect_robots: true,
+      rate_limit_ms: 2000,
+      metadata: { priority: 2 },
+    }),
+    base({
+      source_key: 'fandom_heroes',
+      display_name: 'MLBB Fandom Wiki — Heroes',
+      source_type: 'community_wiki',
+      base_url: 'https://mobile-legends.fandom.com/',
+      discovery_method: 'mediawiki_api',
+      server_type: 'original',
+      enabled: true,
+      is_community: true,
+      respect_robots: true,
+      rate_limit_ms: 1500,
+      metadata: {
+        priority: 3,
+        api: 'https://mobile-legends.fandom.com/api.php',
+        category: 'Category:Heroes',
+        label: 'community-derived',
+      },
+    }),
+    base({
+      source_key: 'fandom_items',
+      display_name: 'MLBB Fandom Wiki — Items',
+      source_type: 'community_wiki',
+      base_url: 'https://mobile-legends.fandom.com/',
+      discovery_method: 'mediawiki_api',
+      server_type: 'original',
+      enabled: true,
+      is_community: true,
+      respect_robots: true,
+      rate_limit_ms: 1500,
+      metadata: {
+        priority: 4,
+        api: 'https://mobile-legends.fandom.com/api.php',
+        category: 'Category:Items',
+        label: 'community-derived',
+      },
+    }),
+    base({
+      source_key: 'fandom_spells',
+      display_name: 'MLBB Fandom Wiki — Battle Spells',
+      source_type: 'community_wiki',
+      base_url: 'https://mobile-legends.fandom.com/',
+      discovery_method: 'mediawiki_api',
+      server_type: 'original',
+      enabled: true,
+      is_community: true,
+      respect_robots: true,
+      rate_limit_ms: 1500,
+      metadata: {
+        priority: 5,
+        api: 'https://mobile-legends.fandom.com/api.php',
+        category: 'Category:Battle_spells',
+        label: 'community-derived',
+      },
+    }),
+    base({
+      source_key: 'liquipedia_esports',
+      display_name: 'Liquipedia MLBB (esports)',
+      source_type: 'community_esports',
+      base_url: 'https://liquipedia.net/mobilelegends/',
+      discovery_method: 'mediawiki_api',
+      server_type: 'original',
+      enabled: true,
+      is_community: true,
+      respect_robots: true,
+      rate_limit_ms: 2000,
+      metadata: {
+        priority: 6,
+        api: 'https://liquipedia.net/mobilelegends/api.php',
+        label: 'community-derived',
+        requires_gzip: true,
+      },
+    }),
+    base({
+      source_key: 'advance_server_watch',
+      display_name: 'Advance Server announcement watch (community + official pages)',
+      source_type: 'discovered_feed',
+      base_url: 'https://www.mobilelegends.com/',
+      discovery_method: 'keyword_discovery',
+      server_type: 'advance',
+      enabled: true,
+      is_community: false,
+      respect_robots: true,
+      rate_limit_ms: 2500,
+      metadata: {
+        priority: 7,
+        keywords: ['Advanced Server', 'Advance Server', 'patch notes'],
+        isolation: 'never_overwrite_original',
+      },
+    }),
+  ].map((s) => ({ ...s, metadata: { ...s.metadata, registered_at: timestamp } }));
+}

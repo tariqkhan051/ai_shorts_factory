@@ -81,6 +81,16 @@ export type BuildMatchCommentaryInput = {
   language?: string;
   /** Optional non-confirmed opener; must not assert facts. */
   includeColorHook?: boolean;
+  /**
+   * Optional compact grounding package from Autonomous Knowledge Engine.
+   * Used to keep commentary server/patch scoped without dumping the full KB.
+   */
+  knowledgeContext?: {
+    grounding_rules?: string[];
+    heroes?: Array<{ hero_key: string; name: string }>;
+    patch_code?: string | null;
+    server_type?: string;
+  };
 };
 
 export type BuildMatchCommentaryResult = {
@@ -96,6 +106,23 @@ export function buildMatchCommentary(
   input: BuildMatchCommentaryInput,
 ): BuildMatchCommentaryResult {
   const lines: MatchCommentaryLine[] = [];
+
+  if (input.knowledgeContext?.grounding_rules?.length) {
+    // Soft color line — explicitly non-confirmed; does not assert unverified facts.
+    lines.push({
+      id: randomUUID(),
+      event_id: null,
+      claim_type: 'color',
+      text: `Calling this ${input.knowledgeContext.server_type ?? input.knowledge.server_environment} match with patch-aware notes${
+        input.knowledgeContext.patch_code ? ` (${input.knowledgeContext.patch_code})` : ''
+      } — sticking to verified roster and timeline facts.`,
+      confirmed: false,
+      timestamp_seconds: 0,
+      hero_keys_mentioned: (input.knowledgeContext.heroes ?? []).map((h) => h.hero_key).slice(0, 8),
+      player_tags_mentioned: [],
+      ability_keys_mentioned: [],
+    });
+  }
 
   if (input.includeColorHook) {
     lines.push({

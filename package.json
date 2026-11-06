@@ -29,7 +29,10 @@
     "match:analyze-timeline": "node ./scripts/analyze-match-timeline.mjs",
     "match:commentary": "node ./scripts/generate-match-commentary.mjs",
     "match:edit": "node ./scripts/assemble-match-edit.mjs",
-    "game-knowledge:sync": "node ./scripts/sync-game-knowledge-artifacts.mjs"
+    "game-knowledge:sync": "node ./scripts/sync-game-knowledge-artifacts.mjs",
+    "knowledge-engine:bootstrap": "node ./scripts/bootstrap-knowledge-engine.mjs",
+    "knowledge-engine:sync": "node ./scripts/run-knowledge-engine-sync.mjs",
+    "knowledge-engine:scheduler": "node ./scripts/run-knowledge-engine-scheduler.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

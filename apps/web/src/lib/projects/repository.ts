@@ -159,11 +159,16 @@ function getMemoryGameKnowledge(): MemoryGameKnowledgeRepository {
 }
 
 async function ensureGameKnowledgeHydrated(): Promise<void> {
-  if (globalForStudio.__asfGameKnowledgeHydrated) return;
-  globalForStudio.__asfGameKnowledgeHydrated = true;
-  // Game knowledge is always memory-backed in Milestone 2 (persisted separately).
+  // Game knowledge is always memory-backed (persisted separately under .data/).
   await ensureMemoryHydrated();
-  await loadGameKnowledgeSnapshot(getMemoryGameKnowledge());
+  const knowledge = getMemoryGameKnowledge();
+  if (globalForStudio.__asfGameKnowledgeHydrated) {
+    // Recover from empty first-load when the store path was wrong (apps/web vs repo root).
+    const existing = knowledge.exportAll();
+    if (existing.profiles.length > 0 || existing.patches.length > 0) return;
+  }
+  globalForStudio.__asfGameKnowledgeHydrated = true;
+  await loadGameKnowledgeSnapshot(knowledge);
 }
 
 export function scheduleGameKnowledgePersist(): void {
@@ -354,12 +359,51 @@ export async function getDistributionRepository(): Promise<DistributionRepositor
 }
 
 /**
+ * Reassign CLI/local-operator KB ownership to the signed-in portal user.
+ * Needed when PROJECT_STORE=supabase but Game KB remains file/memory-backed under `local-dev-user`.
+ */
+function adoptLocalGameKnowledgeIfNeeded(
+  knowledge: MemoryGameKnowledgeRepository,
+  userId: string,
+): boolean {
+  const snap = knowledge.exportAll();
+  if (snap.profiles.some((profile) => profile.user_id === userId)) return false;
+  if (snap.profiles.length === 0) return false;
+
+  const localOwners = new Set([
+    MEMORY_USER_ID,
+    'local-dev-user',
+    '00000000-0000-4000-8000-000000000001',
+  ]);
+  const owners = [...new Set(snap.profiles.map((profile) => profile.user_id))];
+  const sourceOwner =
+    owners.find((owner) => localOwners.has(owner)) ?? (owners.length === 1 ? owners[0] : null);
+  if (!sourceOwner || sourceOwner === userId) return false;
+
+  knowledge.importAll({
+    ...snap,
+    profiles: snap.profiles.map((profile) =>
+      profile.user_id === sourceOwner ? { ...profile, user_id: userId } : profile,
+    ),
+  });
+  scheduleGameKnowledgePersist();
+  return true;
+}
+
+/**
  * Milestone 2 game knowledge store (memory + `.data/game-knowledge.json`).
  * Import creates drafts only; publish requires explicit confirmation phrase.
  */
-export async function getGameKnowledgeRepository(): Promise<GameKnowledgeRepository> {
+export async function getGameKnowledgeRepository(options?: {
+  /** When set, adopt local CLI KB rows for this signed-in user if they own none yet. */
+  adoptForUserId?: string;
+}): Promise<GameKnowledgeRepository> {
   await ensureGameKnowledgeHydrated();
-  return getMemoryGameKnowledge();
+  const knowledge = getMemoryGameKnowledge();
+  if (options?.adoptForUserId) {
+    adoptLocalGameKnowledgeIfNeeded(knowledge, options.adoptForUserId);
+  }
+  return knowledge;
 }
 
 /** Platform deps for createProjectWithPlatform / createVideoInProject (memory or supabase). */

@@ -1,12 +1,10 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 import type { MemoryGameKnowledgeRepository } from '@ai-shorts-factory/database';
+import { resolveDataFile } from '@/lib/data-paths';
 
 function storePath(): string {
-  return (
-    process.env.ASF_GAME_KNOWLEDGE_PATH?.trim() ||
-    join(process.cwd(), '.data', 'game-knowledge.json')
-  );
+  return resolveDataFile('game-knowledge.json', process.env.ASF_GAME_KNOWLEDGE_PATH);
 }
 
 export async function loadGameKnowledgeSnapshot(

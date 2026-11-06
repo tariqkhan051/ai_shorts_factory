@@ -15,6 +15,7 @@
     "@ai-shorts-factory/chatgpt-import": "workspace:*",
     "@ai-shorts-factory/credit-manager": "workspace:*",
     "@ai-shorts-factory/database": "workspace:*",
+    "@ai-shorts-factory/knowledge-engine": "workspace:*",
     "@ai-shorts-factory/flow-adapter": "workspace:*",
     "@ai-shorts-factory/media-engine": "workspace:*",
     "@ai-shorts-factory/n8n-integration": "workspace:*",

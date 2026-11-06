@@ -1,13 +1,26 @@
 import { PUBLISH_GAME_KNOWLEDGE_PHRASE } from '@ai-shorts-factory/shared-types';
 import { requireUser } from '@/lib/auth';
 import { getGameKnowledgeRepository } from '@/lib/projects/repository';
+import { getAutonomousKnowledgeEngine } from '@/lib/knowledge-engine/runtime';
 import { GameKnowledgeImportForm } from '@/components/game-knowledge-import-form';
 import { GameKnowledgePublishForm } from '@/components/game-knowledge-publish-form';
+import { KnowledgeEngineDashboard } from '@/components/knowledge-engine-dashboard';
 
 export default async function GameKnowledgePage() {
   const user = await requireUser();
-  const knowledge = await getGameKnowledgeRepository();
+  const knowledge = await getGameKnowledgeRepository({ adoptForUserId: user.id });
+  const engine = await getAutonomousKnowledgeEngine();
+  const dashboard = engine.getDashboard(user.id);
   const profiles = await knowledge.listProfiles(user.id);
+
+  let heroesSynchronized = 0;
+  for (const profile of profiles) {
+    const patches = await knowledge.listPatches(user.id, profile.id);
+    for (const patch of patches) {
+      const heroes = await knowledge.listHeroes(user.id, patch.id);
+      heroesSynchronized += heroes.length;
+    }
+  }
 
   const patchRows: Array<{
     profileName: string;
@@ -39,14 +52,53 @@ export default async function GameKnowledgePage() {
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Game knowledge</h1>
         <p className="max-w-2xl text-sm text-muted">
-          Import monthly MLBB research as a <strong>draft</strong> patch, review the diff, then
-          publish with an explicit confirmation phrase. Original and Advance Server packages stay
-          separate. Import never auto-publishes or auto-syncs from ChatGPT.
+          Autonomous MLBB Knowledge Engine maintains heroes, items, and patches in the background.
+          Optional manual JSON import remains available for operator research packages. Original and
+          Advance Server stay separate. Sync never auto-publishes.
         </p>
       </header>
 
+      <KnowledgeEngineDashboard
+        activated={dashboard.state.activated}
+        stats={{
+          ...dashboard.stats,
+          heroes_synchronized: heroesSynchronized || dashboard.stats.heroes_synchronized,
+          heroes_discovered: heroesSynchronized || dashboard.stats.heroes_discovered,
+        }}
+        lastSyncAt={dashboard.state.last_sync_at}
+        nextSyncAt={dashboard.state.next_sync_at}
+        sources={dashboard.sources.map((source) => ({
+          source_key: source.source_key,
+          display_name: source.display_name,
+          enabled: source.enabled,
+          is_community: source.is_community,
+          last_success_at: source.last_success_at,
+          last_error: source.last_error,
+          base_url: source.base_url,
+        }))}
+        recentJobs={dashboard.recent_jobs.map((job) => ({
+          id: job.id,
+          kind: job.kind,
+          status: job.status,
+          error_message: job.error_message,
+          created_at: job.created_at,
+        }))}
+        recentPatches={dashboard.patches.slice(0, 12).map((patch) => ({
+          id: patch.id,
+          patch_identifier: patch.patch_identifier,
+          server_type: patch.server_type,
+          first_discovered_at: patch.first_discovered_at,
+        }))}
+        recentLogs={dashboard.recent_logs.map((log) => ({
+          id: log.id,
+          level: log.level,
+          message: log.message,
+          created_at: log.created_at,
+        }))}
+      />
+
       <section className="space-y-3">
-        <h2 className="text-lg font-medium">Import research JSON</h2>
+        <h2 className="text-lg font-medium">Optional manual import</h2>
         <GameKnowledgeImportForm />
       </section>
 
